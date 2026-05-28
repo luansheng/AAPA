@@ -19,8 +19,10 @@ plot_score_distribution <- function(result, type = "histogram") {
   asgn <- result$assignment
 
   if (requireNamespace("ggplot2", quietly = TRUE)) {
-    p <- ggplot2::ggplot(asgn, ggplot2::aes(x = .data$score,
-                                             fill = .data$status)) +
+    score_col <- "score"
+    status_col <- "status"
+    p <- ggplot2::ggplot(asgn, ggplot2::aes(x = .data[[score_col]],
+                                             fill = .data[[status_col]])) +
       ggplot2::geom_histogram(bins = 30, alpha = 0.7,
                               position = "identity") +
       ggplot2::labs(title = "AAPA Score Distribution",
@@ -28,8 +30,8 @@ plot_score_distribution <- function(result, type = "histogram") {
                     y = "Count", fill = "Status") +
       ggplot2::theme_minimal()
     if (type == "density") {
-      p <- ggplot2::ggplot(asgn, ggplot2::aes(x = .data$score,
-                                               fill = .data$status)) +
+      p <- ggplot2::ggplot(asgn, ggplot2::aes(x = .data[[score_col]],
+                                               fill = .data[[status_col]])) +
         ggplot2::geom_density(alpha = 0.5) +
         ggplot2::labs(title = "AAPA Score Distribution",
                       x = "Composite Score (best family)",
@@ -77,11 +79,11 @@ plot_topk <- function(result, individual_id) {
                            levels = rev(topk$family_id))
 
   if (requireNamespace("ggplot2", quietly = TRUE)) {
-    p <- ggplot2::ggplot(topk, ggplot2::aes(x = .data$score,
-                                             y = .data$family_id)) +
+    p <- ggplot2::ggplot(topk, ggplot2::aes(x = .data[["score"]],
+                                             y = .data[["family_id"]])) +
       ggplot2::geom_col(fill = "steelblue") +
       ggplot2::geom_text(ggplot2::aes(
-        label = sprintf("C=%.3f", .data$conflict)),
+        label = sprintf("C=%.3f", .data[["conflict"]])),
         hjust = -0.1, size = 3) +
       ggplot2::labs(title = paste("Top-k Candidates:", individual_id),
                     x = "Composite Score", y = "Family") +
@@ -127,10 +129,10 @@ plot_rejection_diagnostics <- function(result) {
 
   if (requireNamespace("ggplot2", quietly = TRUE)) {
     p <- ggplot2::ggplot(plot_data,
-                         ggplot2::aes(x = .data$score,
-                                      y = .data$confidence,
-                                      color = .data$status,
-                                      size = .data$conflict)) +
+                         ggplot2::aes(x = .data[["score"]],
+                                      y = .data[["confidence"]],
+                                      color = .data[["status"]],
+                                      size = .data[["conflict"]])) +
       ggplot2::geom_point(alpha = 0.7) +
       ggplot2::geom_vline(xintercept = params$tau_conf,
                           linetype = "dashed", color = "red") +

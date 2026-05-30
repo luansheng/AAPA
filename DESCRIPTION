@@ -19,6 +19,7 @@ Depends:
 Imports:
     cli,
     checkmate,
+    data.table,
     stats,
     utils
 Suggests:

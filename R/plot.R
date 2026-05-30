@@ -123,10 +123,10 @@ plot_rejection_diagnostics <- function(result) {
 
   plot_data <- data.frame(
     individual_id = asgn$individual_id,
-    score         = asgn$score,
-    confidence    = pmin(asgn$confidence, 2),  # cap for visualization
-    conflict      = best_conflict,
-    status        = asgn$status,
+    score = asgn$score,
+    confidence = pmin(asgn$confidence, 2), # cap for visualization
+    conflict = best_conflict,
+    status = asgn$status,
     stringsAsFactors = FALSE
   )
 

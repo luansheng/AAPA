@@ -74,7 +74,7 @@ test_that("true offspring have low conflict with own family", {
 
 test_that("composite_score correctly combines conflict and kinship", {
   conflict <- matrix(c(0.0, 0.5, 0.1, 0.3), nrow = 2, ncol = 2)
-  kinship  <- matrix(c(0.8, 0.3, 0.6, 0.4), nrow = 2, ncol = 2)
+  kinship <- matrix(c(0.8, 0.3, 0.6, 0.4), nrow = 2, ncol = 2)
   rownames(conflict) <- rownames(kinship) <- c("IND1", "IND2")
   colnames(conflict) <- colnames(kinship) <- c("FAM1", "FAM2")
 

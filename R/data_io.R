@@ -81,13 +81,13 @@ read_parents <- function(file, genotype_matrix, sep = ",") {
 
     list(
       family_id = fid,
-      sire_id   = sid,
-      dam_id    = did,
+      sire_id = sid,
+      dam_id = did,
       sire_geno = genotype_matrix[sid, ],
-      dam_geno  = genotype_matrix[did, ]
+      dam_geno = genotype_matrix[did, ]
     )
   })
-  names(families) <- sapply(families, `[[`, "family_id")
+  names(families) <- vapply(families, `[[`, character(1), "family_id")
   structure(families, class = "aapa_parents")
 }
 
@@ -217,7 +217,7 @@ simulate_aapa_data <- function(n_families = 10, n_snps = 500,
 
     # Parent genotypes
     sire_g <- sim_geno(1, p)[1, ]
-    dam_g  <- sim_geno(1, p)[1, ]
+    dam_g <- sim_geno(1, p)[1, ]
 
     all_geno[[sid]] <- sire_g
     all_geno[[did]] <- dam_g
@@ -282,9 +282,9 @@ simulate_aapa_data <- function(n_families = 10, n_snps = 500,
   }
 
   list(
-    genotype    = geno_mat,
-    parents     = parents_df,
-    anchors     = anchor_df,
+    genotype = geno_mat,
+    parents = parents_df,
+    anchors = anchor_df,
     true_labels = true_labels
   )
 }

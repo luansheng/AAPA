@@ -61,13 +61,13 @@ qc_filter <- function(genotype,
 
   removed_snps <- c(removed_snp_miss, removed_snp_maf)
   summary_stats <- list(
-    n_ind_before      = n_ind_orig,
-    n_ind_after       = nrow(genotype),
-    n_ind_removed     = length(removed_inds),
-    n_snp_before      = n_snp_orig,
-    n_snp_after       = ncol(genotype),
+    n_ind_before = n_ind_orig,
+    n_ind_after = nrow(genotype),
+    n_ind_removed = length(removed_inds),
+    n_snp_before = n_snp_orig,
+    n_snp_after = ncol(genotype),
     n_snp_removed_miss = length(removed_snp_miss),
-    n_snp_removed_maf  = length(removed_snp_maf)
+    n_snp_removed_maf = length(removed_snp_maf)
   )
 
   if (verbose) {
@@ -81,9 +81,9 @@ qc_filter <- function(genotype,
   }
 
   list(
-    genotype     = genotype,
+    genotype = genotype,
     removed_snps = removed_snps,
     removed_inds = removed_inds,
-    summary      = summary_stats
+    summary = summary_stats
   )
 }

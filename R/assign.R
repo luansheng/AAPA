@@ -112,12 +112,12 @@ aapa_assign <- function(genotype, parents, anchors,
   effective_k <- min(top_k, n_fam)
 
   assignment <- data.frame(
-    individual_id   = character(0),
+    individual_id = character(0),
     assigned_family = character(0),
-    score           = numeric(0),
-    confidence      = numeric(0),
-    status          = character(0),
-    reject_reason   = character(0),
+    score = numeric(0),
+    confidence = numeric(0),
+    status = character(0),
+    reject_reason = character(0),
     stringsAsFactors = FALSE
   )
 
@@ -133,17 +133,17 @@ aapa_assign <- function(genotype, parents, anchors,
     topk_idx <- ord[seq_len(effective_k)]
 
     topk_df <- data.frame(
-      rank      = seq_len(effective_k),
+      rank = seq_len(effective_k),
       family_id = colnames(score_mat)[topk_idx],
-      score     = scores[topk_idx],
-      conflict  = conflicts[topk_idx],
+      score = scores[topk_idx],
+      conflict = conflicts[topk_idx],
       stringsAsFactors = FALSE
     )
     topk_list[[tid]] <- topk_df
 
     # Best candidate
-    best_fam     <- topk_df$family_id[1]
-    best_score   <- topk_df$score[1]
+    best_fam <- topk_df$family_id[1]
+    best_score <- topk_df$score[1]
     best_conflict <- topk_df$conflict[1]
 
     # Confidence: gap between top-1 and top-2
@@ -185,28 +185,28 @@ aapa_assign <- function(genotype, parents, anchors,
     assigned <- if (reject) "REJECT" else best_fam
 
     assignment <- rbind(assignment, data.frame(
-      individual_id   = tid,
+      individual_id = tid,
       assigned_family = assigned,
-      score           = best_score,
-      confidence      = gap,
-      status          = status,
-      reject_reason   = reason,
+      score = best_score,
+      confidence = gap,
+      status = status,
+      reject_reason = reason,
       stringsAsFactors = FALSE
     ))
   }
 
   result <- list(
-    assignment      = assignment,
-    topk            = topk_list,
+    assignment = assignment,
+    topk = topk_list,
     conflict_matrix = conflict_mat,
-    kinship_matrix  = kinship_mat,
-    score_matrix    = score_mat,
-    params          = list(
-      alpha        = alpha,
-      beta         = beta,
-      top_k        = top_k,
-      tau_conf     = tau_conf,
-      tau_rej      = tau_rej,
+    kinship_matrix = kinship_mat,
+    score_matrix = score_mat,
+    params = list(
+      alpha = alpha,
+      beta = beta,
+      top_k = top_k,
+      tau_conf = tau_conf,
+      tau_rej = tau_rej,
       max_conflict = max_conflict
     )
   )
@@ -222,7 +222,7 @@ aapa_assign <- function(genotype, parents, anchors,
 #' @export
 print.aapa_result <- function(x, ...) {
   asgn <- x$assignment
-  n_total    <- nrow(asgn)
+  n_total <- nrow(asgn)
   n_assigned <- sum(asgn$status == "ASSIGNED")
   n_rejected <- sum(asgn$status == "REJECT")
 

@@ -36,8 +36,8 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
 
   test_geno <- genotype[test_ids, , drop = FALSE]
   n_test <- nrow(test_geno)
-  n_fam  <- length(parents)
-  n_snp  <- ncol(test_geno)
+  n_fam <- length(parents)
+  n_snp <- ncol(test_geno)
 
   # Pre-compute allowed offspring genotypes for each family and locus
   # For dosage coding: sire_alleles x dam_alleles -> possible offspring dosages
@@ -47,8 +47,8 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
 
   for (fi in seq_along(parents)) {
     fam <- parents[[fi]]
-    sg <- fam$sire_geno  # length M
-    dg <- fam$dam_geno   # length M
+    sg <- fam$sire_geno # length M
+    dg <- fam$dam_geno  # length M
 
     # Compute allowed genotype set per locus
     # Sire dosage s -> alleles (0: {0,0}, 1: {0,1}, 2: {1,1})
@@ -213,7 +213,7 @@ composite_score <- function(conflict_mat, kinship_mat,
       stop("No shared individuals or families between conflict and kinship matrices.")
     }
     conflict_mat <- conflict_mat[shared_rows, shared_cols, drop = FALSE]
-    kinship_mat  <- kinship_mat[shared_rows, shared_cols, drop = FALSE]
+    kinship_mat <- kinship_mat[shared_rows, shared_cols, drop = FALSE]
   }
 
   score_mat <- -alpha * conflict_mat + beta * kinship_mat

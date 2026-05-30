@@ -1,0 +1,151 @@
+---
+title: "Getting Started with AAPA"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with AAPA}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+**AAPA** (Anchor-Assisted Pedigree Assignment) is an R package for 
+high-throughput full-sib family assignment. It is designed for scenarios where:
+
+- Candidate parents are known (enumerable family set)
+- Each family has one or more **anchor individuals** with high-confidence 
+  family labels
+- A large number of test individuals need to be assigned to families (or 
+  rejected as unknown)
+
+## Quick Start
+
+### 1. Simulate example data
+
+```{r simulate}
+library(aapa)
+
+sim <- simulate_aapa_data(
+  n_families = 5,
+  n_snps = 200,
+  n_offspring_per_family = 10,
+  n_anchors_per_family = 2,
+  n_unknown = 5,
+  missing_rate = 0.01,
+  error_rate = 0.001
+)
+
+str(sim, max.level = 1)
+```
+
+### 2. Prepare input objects
+
+```{r prepare}
+geno <- sim$genotype
+parents_df <- sim$parents
+anchors_df <- sim$anchors
+
+# Build parents object
+parents <- lapply(seq_len(nrow(parents_df)), function(i) {
+  list(
+    family_id = parents_df$family_id[i],
+    sire_id   = parents_df$sire_id[i],
+    dam_id    = parents_df$dam_id[i],
+    sire_geno = geno[parents_df$sire_id[i], ],
+    dam_geno  = geno[parents_df$dam_id[i], ]
+  )
+})
+names(parents) <- parents_df$family_id
+class(parents) <- "aapa_parents"
+
+# Build anchors object
+anchors <- structure(
+  anchors_df,
+  class = c("aapa_anchors", "data.frame"),
+  geno = geno[anchors_df$individual_id, , drop = FALSE]
+)
+```
+
+### 3. Run quality control (optional)
+
+```{r qc}
+qc_result <- qc_filter(geno, max_snp_missing = 0.1,
+                        max_ind_missing = 0.2, min_maf = 0.01)
+geno_clean <- qc_result$genotype
+```
+
+### 4. Run family assignment
+
+```{r assign}
+result <- aapa_assign(
+  genotype = geno_clean,
+  parents  = parents,
+  anchors  = anchors,
+  alpha    = 1.0,
+  beta     = 1.0,
+  top_k    = 3,
+  tau_conf = -0.05,
+  tau_rej  = 0.1,
+  max_conflict = 0.1
+)
+
+print(result)
+```
+
+### 5. Evaluate results
+
+```{r evaluate}
+# Compare to true labels
+asgn <- result$assignment
+assigned <- asgn[asgn$status == "ASSIGNED", ]
+true_labels <- sim$true_labels
+
+correct <- sum(
+  assigned$assigned_family == true_labels[assigned$individual_id],
+  na.rm = TRUE
+)
+cat(sprintf("Accuracy: %.1f%% (%d/%d)\n",
+            100 * correct / nrow(assigned), correct, nrow(assigned)))
+```
+
+### 6. Visualize results
+
+```{r plot, eval = requireNamespace("ggplot2", quietly = TRUE)}
+# Score distribution
+plot_score_distribution(result)
+
+# Rejection diagnostics
+plot_rejection_diagnostics(result)
+```
+
+## Method Overview
+
+AAPA uses a three-component scoring system:
+
+1. **Mendelian Compatibility**: For each SNP, check whether the test 
+   individual's genotype is compatible with the expected offspring 
+   genotypes from the candidate parents.
+
+2. **Anchor Kinship**: Compute IBS (Identity-By-State) similarity 
+   between the test individual and the family's anchor individuals.
+
+3. **Composite Score**: 
+   $$S_{i,f} = -\alpha \cdot C_{i,f} + \beta \cdot K_{i,f}$$
+   where $C$ is the conflict rate and $K$ is the kinship score.
+
+### Rejection Rules
+
+Individuals are rejected (labeled `REJECT`) if any of these conditions 
+are met:
+
+- Best score below absolute threshold (`tau_conf`)
+- Gap between top-1 and top-2 scores too small (`tau_rej`)
+- Mendelian conflict rate too high (`max_conflict`)
+- All candidate families show high conflict (suspected unknown family)

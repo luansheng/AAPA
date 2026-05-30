@@ -1,0 +1,30 @@
+Package: aapa
+Title: Anchor-Assisted Pedigree Assignment
+Version: 0.1.0
+Authors@R: 
+    person("Sheng", "Luan", email = "luansheng@foxmail.com",
+           role = c("aut", "cre"))
+Description: High-throughput full-sib family assignment using known candidate 
+    parents and anchor individuals. AAPA combines Mendelian compatibility 
+    checking with anchor-based kinship scoring to assign test individuals to 
+    candidate families, with built-in confidence scoring and rejection 
+    mechanisms for unknown-family detection.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends:
+    R (>= 4.1.0)
+Imports:
+    stats,
+    utils
+Suggests:
+    testthat (>= 3.0.0),
+    ggplot2,
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+URL: https://github.com/luansheng/AAPA
+BugReports: https://github.com/luansheng/AAPA/issues

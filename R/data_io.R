@@ -4,6 +4,7 @@
 
 #' @import cli
 #' @import checkmate
+#' @importFrom data.table fread
 NULL
 
 #' Read genotype dosage matrix
@@ -37,8 +38,9 @@ read_genotype <- function(file, sep = ",", header = TRUE) {
   checkmate::assert_flag(header)
 
   cli::cli_alert_info("Reading genotype file: {.file {file}}")
-  dat <- utils::read.csv(file, sep = sep, header = header,
-                         stringsAsFactors = FALSE, check.names = FALSE)
+  dat <- data.table::fread(file, sep = sep, header = header,
+                           stringsAsFactors = FALSE, check.names = FALSE,
+                           data.table = FALSE)
   ids <- as.character(dat[[1]])
   geno <- as.matrix(dat[, -1, drop = FALSE])
   storage.mode(geno) <- "integer"
@@ -85,8 +87,13 @@ read_parents <- function(file, genotype_matrix, sep = ",") {
   if (is.character(file)) {
     cli::cli_alert_info("Reading parents file: {.file {file}}")
   }
-  dat <- utils::read.csv(file, sep = sep, header = TRUE,
-                         stringsAsFactors = FALSE)
+  dat <- if (is.character(file)) {
+    data.table::fread(file, sep = sep, header = TRUE,
+                      stringsAsFactors = FALSE, data.table = FALSE)
+  } else {
+    utils::read.csv(file, sep = sep, header = TRUE,
+                    stringsAsFactors = FALSE)
+  }
   required_cols <- c("family_id", "sire_id", "dam_id")
   if (!all(required_cols %in% names(dat))) {
     cli::cli_abort(c(
@@ -146,8 +153,13 @@ read_anchors <- function(file, genotype_matrix, sep = ",") {
   if (is.character(file)) {
     cli::cli_alert_info("Reading anchors file: {.file {file}}")
   }
-  dat <- utils::read.csv(file, sep = sep, header = TRUE,
-                         stringsAsFactors = FALSE)
+  dat <- if (is.character(file)) {
+    data.table::fread(file, sep = sep, header = TRUE,
+                      stringsAsFactors = FALSE, data.table = FALSE)
+  } else {
+    utils::read.csv(file, sep = sep, header = TRUE,
+                    stringsAsFactors = FALSE)
+  }
   required_cols <- c("individual_id", "family_id")
   if (!all(required_cols %in% names(dat))) {
     cli::cli_abort(c(

@@ -48,7 +48,8 @@ test_that("qc_filter removes high-missing individuals", {
   rownames(geno) <- paste0("IND", 1:4)
   colnames(geno) <- paste0("SNP", 1:4)
 
-  result <- qc_filter(geno, max_ind_missing = 0.5,
+  result <- qc_filter(geno, max_snp_missing = 1.0,
+                      max_ind_missing = 0.5,
                       min_maf = 0, verbose = FALSE)
   expect_false("IND2" %in% rownames(result$genotype))
   expect_true("IND2" %in% result$removed_inds)

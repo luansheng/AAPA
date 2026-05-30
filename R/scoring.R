@@ -15,6 +15,16 @@
 #'   all non-parent individuals in genotype are used.
 #' @return A numeric matrix of dimension (n_test x n_families) with
 #'   Mendelian conflict rates in [0, 1].
+#' @family scoring
+#' @examples
+#' sim <- simulate_aapa_data(n_families = 3, n_snps = 100)
+#' parents <- read_parents(
+#'   file = textConnection(paste(
+#'     apply(sim$parents, 1, paste, collapse = ","), collapse = "\n"
+#'   )),
+#'   genotype_matrix = sim$genotype
+#' )
+#' cm <- mendelian_conflict(sim$genotype, parents)
 #' @export
 mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
   if (is.null(test_ids)) {
@@ -127,6 +137,7 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
 #' @param method Kinship estimation method. Currently only \code{"ibs"}
 #'   (proportion of IBS matches) is supported.
 #' @return A numeric matrix (n_test x n_families) with kinship scores.
+#' @family scoring
 #' @export
 anchor_kinship <- function(genotype, anchors, test_ids,
                            method = "ibs") {
@@ -189,6 +200,7 @@ anchor_kinship <- function(genotype, anchors, test_ids,
 #' @param beta Weight for kinship reward (default: 1.0).
 #' @return A numeric matrix (n_test x n_families) of composite scores.
 #'   Higher scores indicate better match.
+#' @family scoring
 #' @export
 composite_score <- function(conflict_mat, kinship_mat,
                             alpha = 1.0, beta = 1.0) {

@@ -13,6 +13,7 @@
 #'   Default: \code{"histogram"}.
 #' @return A ggplot2 object (if ggplot2 is available), otherwise a base
 #'   R plot is produced and NULL is returned invisibly.
+#' @family visualization
 #' @export
 plot_score_distribution <- function(result, type = "histogram") {
   stopifnot(inherits(result, "aapa_result"))
@@ -67,6 +68,7 @@ plot_score_distribution <- function(result, type = "histogram") {
 #' @param result An \code{aapa_result} object.
 #' @param individual_id Character; the ID of the individual to plot.
 #' @return A ggplot2 object (if available), otherwise base R plot.
+#' @family visualization
 #' @export
 plot_topk <- function(result, individual_id) {
   stopifnot(inherits(result, "aapa_result"))
@@ -106,6 +108,7 @@ plot_topk <- function(result, individual_id) {
 #'
 #' @param result An \code{aapa_result} object.
 #' @return A ggplot2 object (if available), otherwise base R plot.
+#' @family visualization
 #' @export
 plot_rejection_diagnostics <- function(result) {
   stopifnot(inherits(result, "aapa_result"))

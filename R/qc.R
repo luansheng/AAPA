@@ -22,6 +22,11 @@
 #'     \item{removed_inds}{Names of removed individuals.}
 #'     \item{summary}{QC summary statistics.}
 #'   }
+#' @family quality-control
+#' @examples
+#' sim <- simulate_aapa_data(n_families = 3, n_snps = 100)
+#' qc_result <- qc_filter(sim$genotype, verbose = FALSE)
+#' dim(qc_result$genotype)
 #' @export
 qc_filter <- function(genotype,
                       max_snp_missing = 0.1,

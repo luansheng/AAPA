@@ -17,10 +17,19 @@ RoxygenNote: 7.3.2
 Depends:
     R (>= 4.1.0)
 Imports:
+    cli,
+    checkmate,
     stats,
     utils
 Suggests:
     testthat (>= 3.0.0),
+    withr,
+    covr,
+    lintr,
+    styler,
+    bench,
+    goodpractice,
+    pkgdown,
     ggplot2,
     knitr,
     rmarkdown

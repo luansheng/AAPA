@@ -13,6 +13,18 @@
 #' @param header Logical; does the file contain a header row? Default TRUE.
 #' @return A numeric matrix with rownames = individual IDs,
 #'   colnames = marker names.
+#' @family data-io
+#' @examples
+#' # Create a temporary genotype file
+#' tmp <- tempfile(fileext = ".csv")
+#' geno_data <- data.frame(
+#'   id = c("IND1", "IND2"),
+#'   SNP1 = c(0, 1),
+#'   SNP2 = c(2, 1)
+#' )
+#' write.csv(geno_data, tmp, row.names = FALSE)
+#' geno <- read_genotype(tmp)
+#' unlink(tmp)
 #' @export
 read_genotype <- function(file, sep = ",", header = TRUE) {
   dat <- utils::read.csv(file, sep = sep, header = header,
@@ -44,6 +56,7 @@ read_genotype <- function(file, sep = ",", header = TRUE) {
 #' @return A list of class \code{aapa_parents}, where each element is a
 #'   list with \code{family_id}, \code{sire_id}, \code{dam_id},
 #'   \code{sire_geno}, \code{dam_geno}.
+#' @family data-io
 #' @export
 read_parents <- function(file, genotype_matrix, sep = ",") {
   dat <- utils::read.csv(file, sep = sep, header = TRUE,
@@ -89,6 +102,7 @@ read_parents <- function(file, genotype_matrix, sep = ",") {
 #' @return A data.frame of class \code{aapa_anchors} with columns:
 #'   individual_id, family_id, weight, and a \code{geno} attribute
 #'   containing the anchor genotype sub-matrix.
+#' @family data-io
 #' @export
 read_anchors <- function(file, genotype_matrix, sep = ",") {
   dat <- utils::read.csv(file, sep = sep, header = TRUE,
@@ -131,6 +145,10 @@ read_anchors <- function(file, genotype_matrix, sep = ",") {
 #' @return A list with components: \code{genotype} (matrix), \code{parents}
 #'   (data.frame), \code{anchors} (data.frame), \code{true_labels}
 #'   (named character vector).
+#' @family data-io
+#' @examples
+#' sim <- simulate_aapa_data(n_families = 3, n_snps = 100)
+#' str(sim, max.level = 1)
 #' @export
 simulate_aapa_data <- function(n_families = 10, n_snps = 500,
                                n_offspring_per_family = 10,

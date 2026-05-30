@@ -37,6 +37,24 @@
 #'     \item{score_matrix}{Full composite score matrix.}
 #'     \item{params}{List of parameters used.}
 #'   }
+#' @family assignment
+#' @examples
+#' # Simulate data and run the full pipeline
+#' sim <- simulate_aapa_data(n_families = 3, n_snps = 100, seed = 1)
+#'
+#' # Write temp files for reading functions
+#' tmp_parents <- tempfile(fileext = ".csv")
+#' write.csv(sim$parents, tmp_parents, row.names = FALSE)
+#' parents <- read_parents(tmp_parents, sim$genotype)
+#'
+#' tmp_anchors <- tempfile(fileext = ".csv")
+#' write.csv(sim$anchors, tmp_anchors, row.names = FALSE)
+#' anchors <- read_anchors(tmp_anchors, sim$genotype)
+#'
+#' result <- aapa_assign(sim$genotype, parents, anchors)
+#' print(result)
+#'
+#' unlink(c(tmp_parents, tmp_anchors))
 #' @export
 aapa_assign <- function(genotype, parents, anchors,
                         test_ids = NULL,
@@ -200,6 +218,7 @@ aapa_assign <- function(genotype, parents, anchors,
 #'
 #' @param x An \code{aapa_result} object.
 #' @param ... Additional arguments (ignored).
+#' @family assignment
 #' @export
 print.aapa_result <- function(x, ...) {
   asgn <- x$assignment
@@ -225,6 +244,7 @@ print.aapa_result <- function(x, ...) {
 #'
 #' @param object An \code{aapa_result} object.
 #' @param ... Additional arguments (ignored).
+#' @family assignment
 #' @export
 summary.aapa_result <- function(object, ...) {
   asgn <- object$assignment

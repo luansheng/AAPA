@@ -4,3 +4,9 @@
 ^AAPA-research-plan\.md$
 ^README\.md$
 ^\.github$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^\.lintr$
+^codecov\.yml$
+^NEWS\.md$

@@ -15,8 +15,23 @@
 #'   all non-parent individuals in genotype are used.
 #' @return A numeric matrix of dimension (n_test x n_families) with
 #'   Mendelian conflict rates in [0, 1].
+#' @family scoring
+#' @examples
+#' sim <- simulate_aapa_data(n_families = 3, n_snps = 100)
+#' parents <- read_parents(
+#'   file = textConnection(paste(
+#'     apply(sim$parents, 1, paste, collapse = ","), collapse = "\n"
+#'   )),
+#'   genotype_matrix = sim$genotype
+#' )
+#' cm <- mendelian_conflict(sim$genotype, parents)
 #' @export
 mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
+  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
+                           min.cols = 1)
+  checkmate::assert_list(parents, min.len = 1)
+  checkmate::assert_character(test_ids, null.ok = TRUE)
+
   if (is.null(test_ids)) {
     parent_ids <- unique(unlist(lapply(parents, function(x) {
       c(x$sire_id, x$dam_id)
@@ -26,8 +41,8 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
 
   test_geno <- genotype[test_ids, , drop = FALSE]
   n_test <- nrow(test_geno)
-  n_fam  <- length(parents)
-  n_snp  <- ncol(test_geno)
+  n_fam <- length(parents)
+  n_snp <- ncol(test_geno)
 
   # Pre-compute allowed offspring genotypes for each family and locus
   # For dosage coding: sire_alleles x dam_alleles -> possible offspring dosages
@@ -37,8 +52,8 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
 
   for (fi in seq_along(parents)) {
     fam <- parents[[fi]]
-    sg <- fam$sire_geno  # length M
-    dg <- fam$dam_geno   # length M
+    sg <- fam$sire_geno # length M
+    dg <- fam$dam_geno  # length M
 
     # Compute allowed genotype set per locus
     # Sire dosage s -> alleles (0: {0,0}, 1: {0,1}, 2: {1,1})
@@ -127,9 +142,16 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
 #' @param method Kinship estimation method. Currently only \code{"ibs"}
 #'   (proportion of IBS matches) is supported.
 #' @return A numeric matrix (n_test x n_families) with kinship scores.
+#' @family scoring
 #' @export
 anchor_kinship <- function(genotype, anchors, test_ids,
                            method = "ibs") {
+  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
+                           min.cols = 1)
+  checkmate::assert_class(anchors, "aapa_anchors")
+  checkmate::assert_character(test_ids, min.len = 1)
+  checkmate::assert_choice(method, c("ibs"))
+
   anchor_geno <- attr(anchors, "geno")
   families <- unique(anchors$family_id)
 
@@ -189,19 +211,27 @@ anchor_kinship <- function(genotype, anchors, test_ids,
 #' @param beta Weight for kinship reward (default: 1.0).
 #' @return A numeric matrix (n_test x n_families) of composite scores.
 #'   Higher scores indicate better match.
+#' @family scoring
 #' @export
 composite_score <- function(conflict_mat, kinship_mat,
                             alpha = 1.0, beta = 1.0) {
+  checkmate::assert_matrix(conflict_mat, mode = "numeric")
+  checkmate::assert_matrix(kinship_mat, mode = "numeric")
+  checkmate::assert_number(alpha, lower = 0)
+  checkmate::assert_number(beta, lower = 0)
+
   # Ensure dimensions match
   if (!identical(dim(conflict_mat), dim(kinship_mat))) {
     # Align by shared row/column names
     shared_rows <- intersect(rownames(conflict_mat), rownames(kinship_mat))
     shared_cols <- intersect(colnames(conflict_mat), colnames(kinship_mat))
     if (length(shared_rows) == 0 || length(shared_cols) == 0) {
-      stop("No shared individuals or families between conflict and kinship matrices.")
+      cli::cli_abort(
+        "No shared individuals or families between conflict and kinship matrices."
+      )
     }
     conflict_mat <- conflict_mat[shared_rows, shared_cols, drop = FALSE]
-    kinship_mat  <- kinship_mat[shared_rows, shared_cols, drop = FALSE]
+    kinship_mat <- kinship_mat[shared_rows, shared_cols, drop = FALSE]
   }
 
   score_mat <- -alpha * conflict_mat + beta * kinship_mat

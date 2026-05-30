@@ -13,9 +13,11 @@
 #'   Default: \code{"histogram"}.
 #' @return A ggplot2 object (if ggplot2 is available), otherwise a base
 #'   R plot is produced and NULL is returned invisibly.
+#' @family visualization
 #' @export
 plot_score_distribution <- function(result, type = "histogram") {
-  stopifnot(inherits(result, "aapa_result"))
+  checkmate::assert_class(result, "aapa_result")
+  checkmate::assert_choice(type, c("histogram", "density"))
   asgn <- result$assignment
 
   if (requireNamespace("ggplot2", quietly = TRUE)) {
@@ -67,11 +69,15 @@ plot_score_distribution <- function(result, type = "histogram") {
 #' @param result An \code{aapa_result} object.
 #' @param individual_id Character; the ID of the individual to plot.
 #' @return A ggplot2 object (if available), otherwise base R plot.
+#' @family visualization
 #' @export
 plot_topk <- function(result, individual_id) {
-  stopifnot(inherits(result, "aapa_result"))
+  checkmate::assert_class(result, "aapa_result")
+  checkmate::assert_string(individual_id)
   if (!individual_id %in% names(result$topk)) {
-    stop("Individual '", individual_id, "' not found in results.")
+    cli::cli_abort(
+      "Individual {.val {individual_id}} not found in results."
+    )
   }
 
   topk <- result$topk[[individual_id]]
@@ -106,9 +112,10 @@ plot_topk <- function(result, individual_id) {
 #'
 #' @param result An \code{aapa_result} object.
 #' @return A ggplot2 object (if available), otherwise base R plot.
+#' @family visualization
 #' @export
 plot_rejection_diagnostics <- function(result) {
-  stopifnot(inherits(result, "aapa_result"))
+  checkmate::assert_class(result, "aapa_result")
   asgn <- result$assignment
   params <- result$params
 
@@ -120,10 +127,10 @@ plot_rejection_diagnostics <- function(result) {
 
   plot_data <- data.frame(
     individual_id = asgn$individual_id,
-    score         = asgn$score,
-    confidence    = pmin(asgn$confidence, 2),  # cap for visualization
-    conflict      = best_conflict,
-    status        = asgn$status,
+    score = asgn$score,
+    confidence = pmin(asgn$confidence, 2), # cap for visualization
+    conflict = best_conflict,
+    status = asgn$status,
     stringsAsFactors = FALSE
   )
 

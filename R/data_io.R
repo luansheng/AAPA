@@ -2,6 +2,11 @@
 # data_io.R — Data input helpers for AAPA
 # ============================================================================
 
+#' @import cli
+#' @import checkmate
+#' @importFrom data.table fread
+NULL
+
 #' Read genotype dosage matrix
 #'
 #' Read a genotype matrix in dosage format (0/1/2, NA for missing).
@@ -13,10 +18,29 @@
 #' @param header Logical; does the file contain a header row? Default TRUE.
 #' @return A numeric matrix with rownames = individual IDs,
 #'   colnames = marker names.
+#' @family data-io
+#' @examples
+#' # Create a temporary genotype file
+#' tmp <- tempfile(fileext = ".csv")
+#' geno_data <- data.frame(
+#'   id = c("IND1", "IND2"),
+#'   SNP1 = c(0, 1),
+#'   SNP2 = c(2, 1)
+#' )
+#' write.csv(geno_data, tmp, row.names = FALSE)
+#' geno <- read_genotype(tmp)
+#' unlink(tmp)
 #' @export
 read_genotype <- function(file, sep = ",", header = TRUE) {
-  dat <- utils::read.csv(file, sep = sep, header = header,
-                         stringsAsFactors = FALSE, check.names = FALSE)
+  checkmate::assert_string(file)
+  checkmate::assert_file_exists(file)
+  checkmate::assert_string(sep)
+  checkmate::assert_flag(header)
+
+  cli::cli_alert_info("Reading genotype file: {.file {file}}")
+  dat <- data.table::fread(file, sep = sep, header = header,
+                           stringsAsFactors = FALSE, check.names = FALSE,
+                           data.table = FALSE)
   ids <- as.character(dat[[1]])
   geno <- as.matrix(dat[, -1, drop = FALSE])
   storage.mode(geno) <- "integer"
@@ -25,10 +49,15 @@ read_genotype <- function(file, sep = ",", header = TRUE) {
   # Validate dosage values
   valid_vals <- c(0L, 1L, 2L, NA_integer_)
   if (!all(geno %in% valid_vals)) {
-    warning("Genotype matrix contains values other than 0, 1, 2, or NA. ",
-            "Non-standard values will be treated as missing.")
+    cli::cli_warn(c(
+      "Genotype matrix contains values other than 0, 1, 2, or NA.",
+      "i" = "Non-standard values will be treated as missing."
+    ))
     geno[!geno %in% c(0L, 1L, 2L)] <- NA_integer_
   }
+  cli::cli_alert_success(
+    "Read {nrow(geno)} individual{?s} x {ncol(geno)} marker{?s}"
+  )
   geno
 }
 
@@ -44,14 +73,34 @@ read_genotype <- function(file, sep = ",", header = TRUE) {
 #' @return A list of class \code{aapa_parents}, where each element is a
 #'   list with \code{family_id}, \code{sire_id}, \code{dam_id},
 #'   \code{sire_geno}, \code{dam_geno}.
+#' @family data-io
 #' @export
 read_parents <- function(file, genotype_matrix, sep = ",") {
-  dat <- utils::read.csv(file, sep = sep, header = TRUE,
-                         stringsAsFactors = FALSE)
+  checkmate::assert(
+    checkmate::check_string(file),
+    checkmate::check_class(file, "connection")
+  )
+  if (is.character(file)) checkmate::assert_file_exists(file)
+  checkmate::assert_matrix(genotype_matrix, mode = "numeric")
+  checkmate::assert_string(sep)
+
+  if (is.character(file)) {
+    cli::cli_alert_info("Reading parents file: {.file {file}}")
+  }
+  dat <- if (is.character(file)) {
+    data.table::fread(file, sep = sep, header = TRUE,
+                      stringsAsFactors = FALSE, data.table = FALSE)
+  } else {
+    utils::read.csv(file, sep = sep, header = TRUE,
+                    stringsAsFactors = FALSE)
+  }
   required_cols <- c("family_id", "sire_id", "dam_id")
   if (!all(required_cols %in% names(dat))) {
-    stop("Parents file must contain columns: ",
-         paste(required_cols, collapse = ", "))
+    cli::cli_abort(c(
+      "Parents file is missing required columns.",
+      "x" = "Required: {.field {required_cols}}",
+      "i" = "Found: {.field {names(dat)}}"
+    ))
   }
 
   families <- lapply(seq_len(nrow(dat)), function(i) {
@@ -60,21 +109,22 @@ read_parents <- function(file, genotype_matrix, sep = ",") {
     did <- as.character(dat$dam_id[i])
 
     if (!sid %in% rownames(genotype_matrix)) {
-      stop("Sire '", sid, "' not found in genotype matrix.")
+      cli::cli_abort("Sire {.val {sid}} not found in genotype matrix.")
     }
     if (!did %in% rownames(genotype_matrix)) {
-      stop("Dam '", did, "' not found in genotype matrix.")
+      cli::cli_abort("Dam {.val {did}} not found in genotype matrix.")
     }
 
     list(
       family_id = fid,
-      sire_id   = sid,
-      dam_id    = did,
+      sire_id = sid,
+      dam_id = did,
       sire_geno = genotype_matrix[sid, ],
-      dam_geno  = genotype_matrix[did, ]
+      dam_geno = genotype_matrix[did, ]
     )
   })
-  names(families) <- sapply(families, `[[`, "family_id")
+  names(families) <- vapply(families, `[[`, character(1), "family_id")
+  cli::cli_alert_success("Read {length(families)} candidate famil{?y/ies}")
   structure(families, class = "aapa_parents")
 }
 
@@ -89,14 +139,34 @@ read_parents <- function(file, genotype_matrix, sep = ",") {
 #' @return A data.frame of class \code{aapa_anchors} with columns:
 #'   individual_id, family_id, weight, and a \code{geno} attribute
 #'   containing the anchor genotype sub-matrix.
+#' @family data-io
 #' @export
 read_anchors <- function(file, genotype_matrix, sep = ",") {
-  dat <- utils::read.csv(file, sep = sep, header = TRUE,
-                         stringsAsFactors = FALSE)
+  checkmate::assert(
+    checkmate::check_string(file),
+    checkmate::check_class(file, "connection")
+  )
+  if (is.character(file)) checkmate::assert_file_exists(file)
+  checkmate::assert_matrix(genotype_matrix, mode = "numeric")
+  checkmate::assert_string(sep)
+
+  if (is.character(file)) {
+    cli::cli_alert_info("Reading anchors file: {.file {file}}")
+  }
+  dat <- if (is.character(file)) {
+    data.table::fread(file, sep = sep, header = TRUE,
+                      stringsAsFactors = FALSE, data.table = FALSE)
+  } else {
+    utils::read.csv(file, sep = sep, header = TRUE,
+                    stringsAsFactors = FALSE)
+  }
   required_cols <- c("individual_id", "family_id")
   if (!all(required_cols %in% names(dat))) {
-    stop("Anchors file must contain columns: ",
-         paste(required_cols, collapse = ", "))
+    cli::cli_abort(c(
+      "Anchors file is missing required columns.",
+      "x" = "Required: {.field {required_cols}}",
+      "i" = "Found: {.field {names(dat)}}"
+    ))
   }
 
   dat$individual_id <- as.character(dat$individual_id)
@@ -107,11 +177,17 @@ read_anchors <- function(file, genotype_matrix, sep = ",") {
 
   missing_ids <- setdiff(dat$individual_id, rownames(genotype_matrix))
   if (length(missing_ids) > 0) {
-    stop("Anchor individuals not found in genotype matrix: ",
-         paste(missing_ids, collapse = ", "))
+    cli::cli_abort(c(
+      "Anchor individuals not found in genotype matrix.",
+      "x" = "Missing: {.val {missing_ids}}"
+    ))
   }
 
   anchor_geno <- genotype_matrix[dat$individual_id, , drop = FALSE]
+  n_fam <- length(unique(dat$family_id))
+  cli::cli_alert_success(
+    "Read {nrow(dat)} anchor{?s} from {n_fam} famil{?y/ies}"
+  )
   structure(dat, class = c("aapa_anchors", "data.frame"),
             geno = anchor_geno)
 }
@@ -131,6 +207,10 @@ read_anchors <- function(file, genotype_matrix, sep = ",") {
 #' @return A list with components: \code{genotype} (matrix), \code{parents}
 #'   (data.frame), \code{anchors} (data.frame), \code{true_labels}
 #'   (named character vector).
+#' @family data-io
+#' @examples
+#' sim <- simulate_aapa_data(n_families = 3, n_snps = 100)
+#' str(sim, max.level = 1)
 #' @export
 simulate_aapa_data <- function(n_families = 10, n_snps = 500,
                                n_offspring_per_family = 10,
@@ -139,6 +219,18 @@ simulate_aapa_data <- function(n_families = 10, n_snps = 500,
                                missing_rate = 0.01,
                                error_rate = 0.001,
                                seed = 42) {
+  checkmate::assert_count(n_families, positive = TRUE)
+  checkmate::assert_count(n_snps, positive = TRUE)
+  checkmate::assert_count(n_offspring_per_family, positive = TRUE)
+  checkmate::assert_count(n_anchors_per_family)
+  checkmate::assert_count(n_unknown)
+  checkmate::assert_number(missing_rate, lower = 0, upper = 1)
+  checkmate::assert_number(error_rate, lower = 0, upper = 1)
+  checkmate::assert_int(seed)
+
+  cli::cli_alert_info(
+    "Simulating data: {n_families} famil{?y/ies}, {n_snps} SNP{?s}"
+  )
   set.seed(seed)
 
   # Allele frequencies
@@ -199,7 +291,7 @@ simulate_aapa_data <- function(n_families = 10, n_snps = 500,
 
     # Parent genotypes
     sire_g <- sim_geno(1, p)[1, ]
-    dam_g  <- sim_geno(1, p)[1, ]
+    dam_g <- sim_geno(1, p)[1, ]
 
     all_geno[[sid]] <- sire_g
     all_geno[[did]] <- dam_g
@@ -263,10 +355,15 @@ simulate_aapa_data <- function(n_families = 10, n_snps = 500,
     }
   }
 
+  n_total_ind <- nrow(geno_mat)
+  cli::cli_alert_success(
+    "Simulated {n_total_ind} individual{?s} x {n_snps} marker{?s}"
+  )
+
   list(
-    genotype    = geno_mat,
-    parents     = parents_df,
-    anchors     = anchor_df,
+    genotype = geno_mat,
+    parents = parents_df,
+    anchors = anchor_df,
     true_labels = true_labels
   )
 }

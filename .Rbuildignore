@@ -2,5 +2,12 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^AAPA-research-plan\.md$
+^AGENTS\.md$
 ^README\.md$
 ^\.github$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^\.lintr$
+^codecov\.yml$
+^NEWS\.md$

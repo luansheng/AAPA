@@ -65,10 +65,16 @@ aapa_assign <- function(genotype, parents, anchors,
                         max_conflict = 0.1) {
 
   # --- Parameter validation ---
-  stopifnot(is.matrix(genotype), is.numeric(genotype))
-  stopifnot(is.list(parents), length(parents) > 0)
-  stopifnot(alpha >= 0, beta >= 0)
-  stopifnot(top_k >= 1)
+  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
+                           min.cols = 1)
+  checkmate::assert_list(parents, min.len = 1)
+  checkmate::assert_character(test_ids, null.ok = TRUE)
+  checkmate::assert_number(alpha, lower = 0)
+  checkmate::assert_number(beta, lower = 0)
+  checkmate::assert_count(top_k, positive = TRUE)
+  checkmate::assert_number(tau_conf)
+  checkmate::assert_number(tau_rej)
+  checkmate::assert_number(max_conflict, lower = 0, upper = 1)
 
   # Determine test individuals
   if (is.null(test_ids)) {
@@ -84,30 +90,32 @@ aapa_assign <- function(genotype, parents, anchors,
                         union(parent_ids, anchor_ids))
   }
   if (length(test_ids) == 0) {
-    stop("No test individuals found.")
+    cli::cli_abort("No test individuals found.")
   }
 
   # Verify test_ids exist in genotype matrix
   missing <- setdiff(test_ids, rownames(genotype))
   if (length(missing) > 0) {
-    stop("Test individuals not found in genotype matrix: ",
-         paste(head(missing, 5), collapse = ", "))
+    cli::cli_abort(c(
+      "Test individuals not found in genotype matrix.",
+      "x" = "Missing: {.val {head(missing, 5)}}"
+    ))
   }
 
   # --- Step 1: Mendelian conflict ---
-  message("Computing Mendelian conflict rates...")
+  cli::cli_alert_info("Step 1/4: Computing Mendelian conflict rates...")
   conflict_mat <- mendelian_conflict(genotype, parents, test_ids)
 
   # --- Step 2: Anchor kinship ---
-  message("Computing anchor kinship scores...")
+  cli::cli_alert_info("Step 2/4: Computing anchor kinship scores...")
   kinship_mat <- anchor_kinship(genotype, anchors, test_ids)
 
   # --- Step 3: Composite score ---
-  message("Computing composite scores...")
+  cli::cli_alert_info("Step 3/4: Computing composite scores...")
   score_mat <- composite_score(conflict_mat, kinship_mat, alpha, beta)
 
   # --- Step 4: Top-k pruning and assignment ---
-  message("Performing top-k pruning and rejection filtering...")
+  cli::cli_alert_info("Step 4/4: Top-k pruning and rejection filtering...")
   n_fam <- ncol(score_mat)
   effective_k <- min(top_k, n_fam)
 
@@ -195,6 +203,12 @@ aapa_assign <- function(genotype, parents, anchors,
     ))
   }
 
+  n_assigned <- sum(assignment$status == "ASSIGNED")
+  n_rejected <- sum(assignment$status == "REJECT")
+  cli::cli_alert_success(
+    "Assignment complete: {n_assigned} assigned, {n_rejected} rejected"
+  )
+
   result <- list(
     assignment = assignment,
     topk = topk_list,
@@ -225,18 +239,17 @@ print.aapa_result <- function(x, ...) {
   n_total <- nrow(asgn)
   n_assigned <- sum(asgn$status == "ASSIGNED")
   n_rejected <- sum(asgn$status == "REJECT")
+  pct_assigned <- round(100 * n_assigned / n_total, 1)
+  pct_rejected <- round(100 * n_rejected / n_total, 1)
 
-  cat("AAPA Assignment Result\n")
-  cat("======================\n")
-  cat("Total individuals: ", n_total, "\n")
-  cat("Assigned:          ", n_assigned,
-      sprintf(" (%.1f%%)\n", 100 * n_assigned / n_total))
-  cat("Rejected:          ", n_rejected,
-      sprintf(" (%.1f%%)\n", 100 * n_rejected / n_total))
-  cat("Families:          ", ncol(x$score_matrix), "\n")
-  cat("Parameters:        ",
-      sprintf("alpha=%.2f, beta=%.2f, top_k=%d\n",
-              x$params$alpha, x$params$beta, x$params$top_k))
+  cli::cli_h1("AAPA Assignment Result")
+  cli::cli_text("Total individuals: {.strong {n_total}}")
+  cli::cli_text("Assigned: {.strong {n_assigned}} ({pct_assigned}%)")
+  cli::cli_text("Rejected: {.strong {n_rejected}} ({pct_rejected}%)")
+  cli::cli_text("Families: {.strong {ncol(x$score_matrix)}}")
+  cli::cli_text(
+    "Parameters: alpha={x$params$alpha}, beta={x$params$beta}, top_k={x$params$top_k}"
+  )
   invisible(x)
 }
 
@@ -248,32 +261,29 @@ print.aapa_result <- function(x, ...) {
 #' @export
 summary.aapa_result <- function(object, ...) {
   asgn <- object$assignment
-  cat("AAPA Assignment Summary\n")
-  cat("=======================\n\n")
+  cli::cli_h1("AAPA Assignment Summary")
 
   # Per-family counts
   assigned <- asgn[asgn$status == "ASSIGNED", ]
   if (nrow(assigned) > 0) {
     fam_counts <- table(assigned$assigned_family)
-    cat("Assignments per family:\n")
+    cli::cli_h2("Assignments per family")
     print(fam_counts)
-    cat("\n")
   }
 
   # Rejection reasons
   rejected <- asgn[asgn$status == "REJECT", ]
   if (nrow(rejected) > 0) {
-    cat("Rejection summary:\n")
+    cli::cli_h2("Rejection summary")
     reasons <- unlist(strsplit(rejected$reject_reason, ";"))
     reasons <- reasons[reasons != ""]
     print(table(reasons))
-    cat("\n")
   }
 
   # Score distribution
-  cat("Score statistics (best candidate):\n")
+  cli::cli_h2("Score statistics (best candidate)")
   print(summary(asgn$score))
-  cat("\nConfidence (top1-top2 gap) statistics:\n")
+  cli::cli_h2("Confidence (top1-top2 gap) statistics")
   finite_conf <- asgn$confidence[is.finite(asgn$confidence)]
   if (length(finite_conf) > 0) print(summary(finite_conf))
   invisible(object)

@@ -33,7 +33,13 @@ qc_filter <- function(genotype,
                       max_ind_missing = 0.2,
                       min_maf = 0.01,
                       verbose = TRUE) {
-  stopifnot(is.matrix(genotype), is.numeric(genotype))
+  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
+                           min.cols = 1)
+  checkmate::assert_number(max_snp_missing, lower = 0, upper = 1)
+  checkmate::assert_number(max_ind_missing, lower = 0, upper = 1)
+  checkmate::assert_number(min_maf, lower = 0, upper = 0.5)
+  checkmate::assert_flag(verbose)
+
   n_ind_orig <- nrow(genotype)
   n_snp_orig <- ncol(genotype)
 
@@ -71,13 +77,18 @@ qc_filter <- function(genotype,
   )
 
   if (verbose) {
-    cat("AAPA Quality Control Summary\n")
-    cat("============================\n")
-    cat(sprintf("Individuals: %d -> %d (removed %d)\n",
-                n_ind_orig, nrow(genotype), length(removed_inds)))
-    cat(sprintf("SNPs: %d -> %d (removed %d missing, %d low MAF)\n",
-                n_snp_orig, ncol(genotype),
-                length(removed_snp_miss), length(removed_snp_maf)))
+    cli::cli_h2("AAPA Quality Control Summary")
+    cli::cli_text(
+      "Individuals: {n_ind_orig} \\
+      {cli::symbol$arrow_right} {nrow(genotype)} \\
+      (removed {length(removed_inds)})"
+    )
+    cli::cli_text(
+      "SNPs: {n_snp_orig} \\
+      {cli::symbol$arrow_right} {ncol(genotype)} \\
+      (removed {length(removed_snp_miss)} missing, \\
+      {length(removed_snp_maf)} low MAF)"
+    )
   }
 
   list(

@@ -27,6 +27,11 @@
 #' cm <- mendelian_conflict(sim$genotype, parents)
 #' @export
 mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
+  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
+                           min.cols = 1)
+  checkmate::assert_list(parents, min.len = 1)
+  checkmate::assert_character(test_ids, null.ok = TRUE)
+
   if (is.null(test_ids)) {
     parent_ids <- unique(unlist(lapply(parents, function(x) {
       c(x$sire_id, x$dam_id)
@@ -141,6 +146,12 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
 #' @export
 anchor_kinship <- function(genotype, anchors, test_ids,
                            method = "ibs") {
+  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
+                           min.cols = 1)
+  checkmate::assert_class(anchors, "aapa_anchors")
+  checkmate::assert_character(test_ids, min.len = 1)
+  checkmate::assert_choice(method, c("ibs"))
+
   anchor_geno <- attr(anchors, "geno")
   families <- unique(anchors$family_id)
 
@@ -204,13 +215,20 @@ anchor_kinship <- function(genotype, anchors, test_ids,
 #' @export
 composite_score <- function(conflict_mat, kinship_mat,
                             alpha = 1.0, beta = 1.0) {
+  checkmate::assert_matrix(conflict_mat, mode = "numeric")
+  checkmate::assert_matrix(kinship_mat, mode = "numeric")
+  checkmate::assert_number(alpha, lower = 0)
+  checkmate::assert_number(beta, lower = 0)
+
   # Ensure dimensions match
   if (!identical(dim(conflict_mat), dim(kinship_mat))) {
     # Align by shared row/column names
     shared_rows <- intersect(rownames(conflict_mat), rownames(kinship_mat))
     shared_cols <- intersect(colnames(conflict_mat), colnames(kinship_mat))
     if (length(shared_rows) == 0 || length(shared_cols) == 0) {
-      stop("No shared individuals or families between conflict and kinship matrices.")
+      cli::cli_abort(
+        "No shared individuals or families between conflict and kinship matrices."
+      )
     }
     conflict_mat <- conflict_mat[shared_rows, shared_cols, drop = FALSE]
     kinship_mat <- kinship_mat[shared_rows, shared_cols, drop = FALSE]

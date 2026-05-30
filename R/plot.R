@@ -16,7 +16,8 @@
 #' @family visualization
 #' @export
 plot_score_distribution <- function(result, type = "histogram") {
-  stopifnot(inherits(result, "aapa_result"))
+  checkmate::assert_class(result, "aapa_result")
+  checkmate::assert_choice(type, c("histogram", "density"))
   asgn <- result$assignment
 
   if (requireNamespace("ggplot2", quietly = TRUE)) {
@@ -71,9 +72,12 @@ plot_score_distribution <- function(result, type = "histogram") {
 #' @family visualization
 #' @export
 plot_topk <- function(result, individual_id) {
-  stopifnot(inherits(result, "aapa_result"))
+  checkmate::assert_class(result, "aapa_result")
+  checkmate::assert_string(individual_id)
   if (!individual_id %in% names(result$topk)) {
-    stop("Individual '", individual_id, "' not found in results.")
+    cli::cli_abort(
+      "Individual {.val {individual_id}} not found in results."
+    )
   }
 
   topk <- result$topk[[individual_id]]
@@ -111,7 +115,7 @@ plot_topk <- function(result, individual_id) {
 #' @family visualization
 #' @export
 plot_rejection_diagnostics <- function(result) {
-  stopifnot(inherits(result, "aapa_result"))
+  checkmate::assert_class(result, "aapa_result")
   asgn <- result$assignment
   params <- result$params
 

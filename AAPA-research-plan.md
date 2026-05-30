@@ -756,6 +756,12 @@ result <- aapa_assign(
 )
 ```
 
+其中 `threads` 必须是**可选加速参数**：
+
+- `threads = 1` 或无并发支持时，必须可靠回退到串行；
+- 并发仅影响性能，不得改变结果对象结构、排序语义和拒判语义；
+- 若后续增加 compiled backend，用户层接口保持稳定，不暴露底层实现细节。
+
 输出为 data frame：
 
 ```r
@@ -803,6 +809,143 @@ N * F * M 的 conflict rate 计算
 ```
 
 这是全流程最可能的计算瓶颈。
+
+#### 10.6.1 实现边界
+
+Rcpp 版本的边界应尽早固定，避免后续接口反复重构：
+
+- R 层负责输入校验、ID 对齐、对象构造、拒判规则和用户消息输出；
+- C++ 层只负责纯计算核，如 Mendelian conflict、anchor similarity、top-k 选择和缺失计数；
+- 传入 C++ 的对象应尽量是已对齐的 matrix / vector / index，不在 C++ 内重复解析高层 data.frame / list 语义；
+- 编译路径不得成为唯一可运行路径，必须始终保留纯 R 参考实现。
+
+#### 10.6.2 benchmark 设计原则
+
+性能 benchmark 不只是报告“更快”，还必须回答“是否仍然正确、可复现、可扩展”。
+
+固定原则：
+
+1. **profile-first**：先用纯 R 版本做 profiling，再决定优化哪一个核；
+2. **正确性先于速度**：每个 compiled kernel 必须与纯 R truth oracle 做数值等价比较；
+3. **分层 benchmark**：分别测试单核函数、完整流程、不同 `top_k`、不同 anchor 数和不同 missing rate；
+4. **同时报告时间与内存**：避免只看运行时间而忽略峰值内存；
+5. **记录环境信息**：R 版本、编译器、CPU、线程数、BLAS 环境都应写入 benchmark 结果。
+
+#### 10.6.3 benchmark 场景矩阵
+
+建议固定三档 benchmark 场景，用于开发期和论文期复现：
+
+```text
+Small:
+  families = 20
+  offspring_per_family = 50
+  anchors_per_family = 3
+  SNPs = 1,000
+
+Medium:
+  families = 50
+  offspring_per_family = 200
+  anchors_per_family = 5
+  SNPs = 10,000
+
+Large:
+  families = 100
+  offspring_per_family = 1,000
+  anchors_per_family = 5-10
+  SNPs = 50,000-100,000
+```
+
+每档场景至少再做以下扰动：
+
+- missing rate：1%、5%、10%；
+- error rate：0.1%、0.5%、1%；
+- unknown family 比例：0%、5%、10%；
+- `top_k`：1、3、5、10；
+- anchor 数：1、3、5、10。
+
+#### 10.6.4 benchmark 指标模板
+
+每次 benchmark 至少输出以下字段：
+
+```text
+scenario_id
+n_individuals
+n_families
+n_markers
+n_anchors
+missing_rate
+error_rate
+top_k
+backend            # pure-r / rcpp-serial / rcpp-openmp
+threads
+elapsed_sec
+peak_mem_mb
+assigned_accuracy
+rejection_rate
+false_assignment_rate
+unknown_detection_auroc
+top1_recall
+topk_recall
+result_identical   # TRUE/FALSE 或 tolerance pass/fail
+```
+
+开发期建议把结果整理成两张固定表：
+
+1. **correctness table**：比较 pure R 与 compiled backend 的结果一致性；
+2. **performance table**：比较不同 backend 与线程数下的 runtime / memory。
+
+#### 10.6.5 数值等价与容差
+
+推荐把纯 R 版本作为 truth oracle，并采用以下比较口径：
+
+- 整数结果（例如计数、rank、top-k family ID）要求严格一致；
+- 浮点结果（例如 conflict rate、anchor score、composite score）允许在预设容差内一致；
+- `NA` 传播语义必须完全一致；
+- top-k 的 tie 行为必须固定，不能因并发或 partial sort 改变输出顺序；
+- `status` 与 `reject_reason` 必须与纯 R 路径解释一致。
+
+具体容差阈值、比较函数和失败时的诊断脚本建议维护在 benchmark 文档或测试辅助文件中，而不是分散到多个实验脚本。
+
+#### 10.6.6 并发策略
+
+包内并发建议遵循“**默认串行，可选多线程**”的路线：
+
+- 首选可选 OpenMP，对外仅表现为 `threads` 参数；
+- 无 OpenMP 支持时自动退回串行，不报伪错误；
+- `future` / `furrr` 更适合外部实验脚本，不建议作为包内默认 backend；
+- 不建议在包内核心路径优先引入 `RcppParallel`，除非 OpenMP 兼容性或维护成本明显不可接受；
+- 禁止嵌套并行，避免与用户外层并发、BLAS 多线程叠加。
+
+建议优先并行的维度：
+
+```text
+按 test individual 并行
+或按 family block 并行
+```
+
+这两种方式最容易保持任务独立、写回位置固定，便于保证结果可重复。
+
+#### 10.6.7 线程安全约束
+
+并发实现必须满足：
+
+- 工作线程中不调用 R API；
+- 工作线程中不进行消息输出、S3 对象构造或依赖外部可变状态；
+- 所有输出缓冲区预先分配，并按固定索引写回；
+- 若使用 partial sort / top-k 选择，必须显式定义 stable tie-break 规则；
+- benchmark 必须覆盖 `threads = 1, 2, 4, 8` 等典型设置，并验证结果完全一致。
+
+#### 10.6.8 阶段性交付物
+
+Rcpp / 并发阶段的最小交付物不只是代码，还应包括：
+
+```text
+1. 纯 R 与 compiled backend 的对照测试
+2. Small / Medium / Large 三档 benchmark 结果
+3. 串行 vs 多线程 的速度与内存报告
+4. 线程数与加速比曲线
+5. 已知限制与回退策略说明
+```
 
 ### 10.7 后续 Rust / CLI 可能性
 
@@ -933,7 +1076,7 @@ AAPA v0.1
 目标：
 
 - 将 conflict rate 和 anchor score 核心计算迁移到 Rcpp；
-- 支持多线程；
+- 支持可选多线程；
 - 优化内存使用。
 
 成果：
@@ -941,6 +1084,8 @@ AAPA v0.1
 ```text
 AAPA R package prototype
 速度 benchmark
+纯 R vs compiled 一致性报告
+串行回退说明
 ```
 
 ### 阶段 4：真实数据验证
@@ -1065,6 +1210,14 @@ top1 和 top2 家系分数接近。
 6. 加入 anchor-only 和 conflict-only baseline；
 7. 设计 benchmark 表格模板，固定 accuracy、rejection、runtime 三类指标；
 8. 在确认瓶颈后再决定 Rcpp 加速接口。
+
+建议把第 7-8 项具体化为：
+
+- 固定 `Small / Medium / Large` 三档 benchmark 数据规模；
+- 固定 `pure-r / rcpp-serial / rcpp-openmp` 三类 backend 标签；
+- 固定 `threads = 1, 2, 4, 8` 的测试矩阵；
+- 固定 correctness table 与 performance table 两类输出；
+- 先完成串行 compiled kernel，再增加并发，避免把“编译优化”和“并发优化”混为一次变更。
 
 第一阶段不要同时引入深度学习、图神经网络和复杂文件格式解析，应优先把核心科学问题和基准实验跑通。
 

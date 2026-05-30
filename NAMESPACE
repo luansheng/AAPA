@@ -15,6 +15,7 @@ export(simulate_aapa_data)
 
 import(checkmate)
 import(cli)
+importFrom(data.table,fread)
 importFrom(stats, runif)
 importFrom(stats, rbinom)
 importFrom(stats, weighted.mean)

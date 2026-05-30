@@ -48,8 +48,9 @@ test_that("aapa_assign correctly assigns perfect data", {
   anchors <- make_anchors_object(geno, anchors_df)
 
   result <- aapa_assign(geno, parents, anchors,
-                        top_k = 3, tau_conf = -Inf,
-                        tau_rej = 0, max_conflict = 1.0)
+    top_k = 3, tau_conf = -Inf,
+    tau_rej = 0, max_conflict = 1.0
+  )
 
   # With perfect data, most true offspring should be correctly assigned
   asgn <- result$assignment
@@ -65,7 +66,8 @@ test_that("aapa_assign correctly assigns perfect data", {
   # Expect high accuracy with perfect data
 
   expect_true(accuracy >= 0.8,
-              info = sprintf("Accuracy %.2f is below 0.8", accuracy))
+    info = sprintf("Accuracy %.2f is below 0.8", accuracy)
+  )
 })
 
 test_that("aapa_assign rejects unknown-family individuals", {
@@ -86,16 +88,19 @@ test_that("aapa_assign rejects unknown-family individuals", {
 
   # Use strict rejection thresholds
   result <- aapa_assign(geno, parents, anchors,
-                        top_k = 3,
-                        tau_conf = -0.05,
-                        tau_rej = 0.05,
-                        max_conflict = 0.05)
+    top_k = 3,
+    tau_conf = -0.05,
+    tau_rej = 0.05,
+    max_conflict = 0.05
+  )
 
   # Check that at least some UNKNOWN individuals are rejected
   unknown_ids <- grep("^UNKNOWN", result$assignment$individual_id,
-                      value = TRUE)
+    value = TRUE
+  )
   unknown_results <- result$assignment[
-    result$assignment$individual_id %in% unknown_ids, ]
+    result$assignment$individual_id %in% unknown_ids,
+  ]
 
   if (nrow(unknown_results) > 0) {
     # At least some unknown individuals should be rejected

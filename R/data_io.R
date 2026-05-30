@@ -7,23 +7,32 @@
 #' @importFrom data.table fread
 NULL
 
+#' Validate genotype matrix contract
+#'
+#' Check that a genotype matrix satisfies the AAPA object contract:
+#' unique sample IDs, unique marker IDs, and dosage encoding 0/1/2/NA.
+#'
+#' @param genotype A genotype matrix.
+#' @param arg Argument name used in error messages.
+#' @return The input matrix, invisibly.
+#' @keywords internal
 .validate_genotype_matrix <- function(genotype, arg = "genotype") {
-  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
-                           min.cols = 1)
+  checkmate::assert_matrix(genotype,
+    mode = "numeric", min.rows = 1,
+    min.cols = 1
+  )
 
   sample_ids <- rownames(genotype)
   marker_ids <- colnames(genotype)
 
-  if (is.null(sample_ids) || anyNA(sample_ids) || any(sample_ids == "") ||
-      anyDuplicated(sample_ids)) {
+  if (is.null(sample_ids) || anyNA(sample_ids) || any(sample_ids == "") || anyDuplicated(sample_ids)) {
     cli::cli_abort(c(
       "{.arg {arg}} must have unique, non-missing row names.",
       "x" = "Sample IDs are required for all downstream alignment steps."
     ))
   }
 
-  if (is.null(marker_ids) || anyNA(marker_ids) || any(marker_ids == "") ||
-      anyDuplicated(marker_ids)) {
+  if (is.null(marker_ids) || anyNA(marker_ids) || any(marker_ids == "") || anyDuplicated(marker_ids)) {
     cli::cli_abort(c(
       "{.arg {arg}} must have unique, non-missing column names.",
       "x" = "Marker IDs are required for all downstream alignment steps."
@@ -41,75 +50,155 @@ NULL
   invisible(genotype)
 }
 
+#' Validate parent identifiers and family naming
+#'
+#' @param family A single parent entry.
+#' @param family_name Expected family name from `names(parents)`.
+#' @return The input family entry, invisibly.
+#' @keywords internal
+.validate_parent_ids <- function(family, family_name) {
+  required_fields <- c("family_id", "sire_id", "dam_id", "sire_geno", "dam_geno")
+
+  if (!all(required_fields %in% names(family))) {
+    cli::cli_abort(c(
+      "Each `parents` entry must contain the required fields.",
+      "x" = sprintf("Family %s is missing one or more required fields.", family_name)
+    ))
+  }
+
+  if (!identical(as.character(family$family_id), family_name)) {
+    cli::cli_abort(c(
+      "`names(parents)` must match each entry's `family_id`.",
+      "x" = sprintf("Found mismatch for family %s.", family_name)
+    ))
+  }
+
+  if (!checkmate::test_string(family$sire_id) || !checkmate::test_string(family$dam_id)) {
+    cli::cli_abort("Each `parents` entry must contain scalar `sire_id` and `dam_id` strings.")
+  }
+
+  invisible(family)
+}
+
+#' Validate parent genotype vector types and lengths
+#'
+#' @param family A single parent entry.
+#' @param family_name Expected family name from `names(parents)`.
+#' @return The input family entry, invisibly.
+#' @keywords internal
+.validate_parent_geno_vectors <- function(family, family_name) {
+  invalid_sire_geno <- !is.atomic(family$sire_geno) || is.matrix(family$sire_geno)
+  invalid_dam_geno <- !is.atomic(family$dam_geno) || is.matrix(family$dam_geno)
+
+  if (invalid_sire_geno || invalid_dam_geno) {
+    cli::cli_abort("`sire_geno` and `dam_geno` must be named atomic vectors.")
+  }
+
+  if (!identical(length(family$sire_geno), length(family$dam_geno))) {
+    cli::cli_abort(c(
+      "Parent genotype lengths must match within each family.",
+      "x" = sprintf("Family %s has incompatible sire/dam genotype lengths.", family_name)
+    ))
+  }
+
+  invisible(family)
+}
+
+#' Validate parent marker names
+#'
+#' @param family A single parent entry.
+#' @param family_name Expected family name from `names(parents)`.
+#' @return The input family entry, invisibly.
+#' @keywords internal
+.validate_parent_marker_names <- function(family, family_name) {
+  sire_markers <- names(family$sire_geno)
+  dam_markers <- names(family$dam_geno)
+
+  invalid_sire_markers <- is.null(sire_markers) || anyDuplicated(sire_markers) || anyNA(sire_markers)
+  invalid_dam_markers <- is.null(dam_markers) || anyDuplicated(dam_markers) || anyNA(dam_markers)
+
+  if (invalid_sire_markers || invalid_dam_markers) {
+    cli::cli_abort(c(
+      "Parent genotype vectors must carry unique marker names.",
+      "x" = sprintf(
+        "Family %s is missing marker names on `sire_geno` or `dam_geno`.",
+        family_name
+      )
+    ))
+  }
+
+  invisible(family)
+}
+
+#' Validate parent genotype vectors
+#'
+#' @param family A single parent entry.
+#' @param family_name Expected family name from `names(parents)`.
+#' @return The input family entry, invisibly.
+#' @keywords internal
+.validate_parent_genotypes <- function(family, family_name) {
+  .validate_parent_geno_vectors(family, family_name)
+  .validate_parent_marker_names(family, family_name)
+
+  invisible(family)
+}
+
+#' Validate a single parent entry
+#'
+#' Check that one family entry in an `aapa_parents` object satisfies the
+#' required field, naming, and marker constraints.
+#'
+#' @param family A single parent entry.
+#' @param family_name Expected family name from `names(parents)`.
+#' @return The input family entry, invisibly.
+#' @keywords internal
+.validate_parent_entry <- function(family, family_name) {
+  .validate_parent_ids(family, family_name)
+  .validate_parent_genotypes(family, family_name)
+
+  invisible(family)
+}
+
+#' Validate parents object contract
+#'
+#' Check that a parent list contains the required fields, stable family names,
+#' and marker-named parent genotype vectors.
+#'
+#' @param parents An `aapa_parents` object or compatible named list.
+#' @return The input parents object, invisibly.
+#' @keywords internal
 .validate_parents_object <- function(parents) {
   checkmate::assert_list(parents, min.len = 1)
 
   parent_names <- names(parents)
-  if (is.null(parent_names) || anyNA(parent_names) || any(parent_names == "") ||
-      anyDuplicated(parent_names)) {
+  if (is.null(parent_names) || anyNA(parent_names) || any(parent_names == "") || anyDuplicated(parent_names)) {
     cli::cli_abort(c(
       "`parents` must be a named list with unique family IDs.",
       "x" = "Use `names(parents) <- family_id`."
     ))
   }
 
-  required_fields <- c("family_id", "sire_id", "dam_id", "sire_geno", "dam_geno")
-
   for (ii in seq_along(parents)) {
-    family <- parents[[ii]]
-    family_name <- parent_names[[ii]]
-
-    if (!all(required_fields %in% names(family))) {
-      cli::cli_abort(c(
-        "Each `parents` entry must contain the required fields.",
-        "x" = "Family {.val {family_name}} is missing one or more required fields."
-      ))
-    }
-
-    if (!identical(as.character(family$family_id), family_name)) {
-      cli::cli_abort(c(
-        "`names(parents)` must match each entry's `family_id`.",
-        "x" = "Found mismatch for family {.val {family_name}}."
-      ))
-    }
-
-    if (!checkmate::test_string(family$sire_id) || !checkmate::test_string(family$dam_id)) {
-      cli::cli_abort("Each `parents` entry must contain scalar `sire_id` and `dam_id` strings.")
-    }
-
-    if (!is.atomic(family$sire_geno) || is.matrix(family$sire_geno) ||
-        !is.atomic(family$dam_geno) || is.matrix(family$dam_geno)) {
-      cli::cli_abort("`sire_geno` and `dam_geno` must be named atomic vectors.")
-    }
-
-    if (!identical(length(family$sire_geno), length(family$dam_geno))) {
-      cli::cli_abort(c(
-        "Parent genotype lengths must match within each family.",
-        "x" = "Family {.val {family_name}} has incompatible sire/dam genotype lengths."
-      ))
-    }
-
-    sire_markers <- names(family$sire_geno)
-    dam_markers <- names(family$dam_geno)
-
-    if (is.null(sire_markers) || is.null(dam_markers) || anyDuplicated(sire_markers) ||
-        anyDuplicated(dam_markers) || anyNA(sire_markers) || anyNA(dam_markers)) {
-      cli::cli_abort(c(
-        "Parent genotype vectors must carry unique marker names.",
-        "x" = "Family {.val {family_name}} is missing marker names on `sire_geno` or `dam_geno`."
-      ))
-    }
+    .validate_parent_entry(parents[[ii]], parent_names[[ii]])
   }
 
   invisible(parents)
 }
 
+#' Align parent genotype vectors to genotype markers
+#'
+#' Reorder each family's `sire_geno` and `dam_geno` vectors to the supplied
+#' marker order after checking that all markers are present.
+#'
+#' @param parents An `aapa_parents` object or compatible named list.
+#' @param marker_ids Character vector of marker IDs defining the target order.
+#' @return A parents object aligned to `marker_ids`.
+#' @keywords internal
 .align_parents_to_markers <- function(parents, marker_ids) {
   .validate_parents_object(parents)
 
   aligned <- lapply(seq_along(parents), function(ii) {
     family <- parents[[ii]]
-    family_name <- names(parents)[[ii]]
 
     missing_sire <- setdiff(marker_ids, names(family$sire_geno))
     missing_dam <- setdiff(marker_ids, names(family$dam_geno))
@@ -117,7 +206,10 @@ NULL
     if (length(missing_sire) > 0 || length(missing_dam) > 0) {
       cli::cli_abort(c(
         "Parent genotypes must contain all genotype markers.",
-        "x" = "Family {.val {family_name}} is missing marker names required for alignment."
+        "x" = sprintf(
+          "Family %s is missing marker names required for alignment.",
+          names(parents)[[ii]]
+        )
       ))
     }
 
@@ -130,6 +222,16 @@ NULL
   structure(aligned, class = class(parents))
 }
 
+#' Validate anchors object contract
+#'
+#' Check that an anchors object has required columns, stable IDs, and an
+#' aligned genotype matrix in `attr(anchors, "geno")`.
+#'
+#' @param anchors An `aapa_anchors` object.
+#' @param family_ids Optional candidate family IDs used to validate anchor
+#'   family membership.
+#' @return The input anchors object, invisibly.
+#' @keywords internal
 .validate_anchors_object <- function(anchors, family_ids = NULL) {
   checkmate::assert_class(anchors, "aapa_anchors")
 
@@ -141,8 +243,7 @@ NULL
     ))
   }
 
-  if (anyNA(anchors$individual_id) || any(anchors$individual_id == "") ||
-      anyDuplicated(anchors$individual_id)) {
+  if (anyNA(anchors$individual_id) || any(anchors$individual_id == "") || anyDuplicated(anchors$individual_id)) {
     cli::cli_abort("`anchors$individual_id` must be unique and non-missing.")
   }
 
@@ -154,7 +255,7 @@ NULL
     missing_families <- unique(setdiff(anchors$family_id, family_ids))
     cli::cli_abort(c(
       "Anchor family IDs must exist in the candidate family set.",
-      "x" = "Unknown anchor families: {.val {missing_families}}"
+      "x" = sprintf("Unknown anchor families: %s", paste(missing_families, collapse = ", "))
     ))
   }
 
@@ -163,14 +264,22 @@ NULL
     cli::cli_abort("`anchors` must carry a genotype matrix in `attr(anchors, \"geno\")`.")
   }
 
-  if (is.null(rownames(anchor_geno)) || anyDuplicated(rownames(anchor_geno)) ||
-      anyNA(rownames(anchor_geno))) {
+  if (is.null(rownames(anchor_geno)) || anyDuplicated(rownames(anchor_geno)) || anyNA(rownames(anchor_geno))) {
     cli::cli_abort("`attr(anchors, \"geno\")` must have unique row names matching `individual_id`.")
   }
 
   invisible(anchors)
 }
 
+#' Align anchor genotype matrix to genotype markers
+#'
+#' Reorder the anchor genotype submatrix to the supplied marker order after
+#' checking that all required anchor IDs and marker IDs are present.
+#'
+#' @param anchors An `aapa_anchors` object.
+#' @param marker_ids Character vector of marker IDs defining the target order.
+#' @return An anchors object aligned to `marker_ids`.
+#' @keywords internal
 .align_anchors_to_markers <- function(anchors, marker_ids) {
   anchor_geno <- attr(anchors, "geno")
 
@@ -178,12 +287,11 @@ NULL
   if (length(missing_anchor_ids) > 0) {
     cli::cli_abort(c(
       "Anchor genotype matrix must contain all anchor individuals.",
-      "x" = "Missing anchor IDs: {.val {missing_anchor_ids}}"
+      "x" = sprintf("Missing anchor IDs: %s", paste(missing_anchor_ids, collapse = ", "))
     ))
   }
 
-  if (is.null(colnames(anchor_geno)) || anyDuplicated(colnames(anchor_geno)) ||
-      anyNA(colnames(anchor_geno))) {
+  if (is.null(colnames(anchor_geno)) || anyDuplicated(colnames(anchor_geno)) || anyNA(colnames(anchor_geno))) {
     cli::cli_abort("`attr(anchors, \"geno\")` must have unique marker names.")
   }
 
@@ -191,7 +299,7 @@ NULL
   if (length(missing_markers) > 0) {
     cli::cli_abort(c(
       "Anchor genotype matrix must contain all genotype markers.",
-      "x" = "Missing markers: {.val {missing_markers}}"
+      "x" = sprintf("Missing markers: %s", paste(missing_markers, collapse = ", "))
     ))
   }
 
@@ -230,9 +338,11 @@ read_genotype <- function(file, sep = ",", header = TRUE) {
   checkmate::assert_flag(header)
 
   cli::cli_alert_info("Reading genotype file: {.file {file}}")
-  dat <- data.table::fread(file, sep = sep, header = header,
-                           stringsAsFactors = FALSE, check.names = FALSE,
-                           data.table = FALSE)
+  dat <- data.table::fread(file,
+    sep = sep, header = header,
+    stringsAsFactors = FALSE, check.names = FALSE,
+    data.table = FALSE
+  )
   ids <- as.character(dat[[1]])
   geno <- as.matrix(dat[, -1, drop = FALSE])
   storage.mode(geno) <- "integer"
@@ -242,8 +352,7 @@ read_genotype <- function(file, sep = ",", header = TRUE) {
     cli::cli_abort("Genotype file must contain unique, non-missing individual IDs in the first column.")
   }
 
-  if (is.null(colnames(geno)) || anyNA(colnames(geno)) || any(colnames(geno) == "") ||
-      anyDuplicated(colnames(geno))) {
+  if (is.null(colnames(geno)) || anyNA(colnames(geno)) || any(colnames(geno) == "") || anyDuplicated(colnames(geno))) {
     cli::cli_abort("Genotype file must contain unique, non-missing marker names.")
   }
 
@@ -271,7 +380,7 @@ read_genotype <- function(file, sep = ",", header = TRUE) {
 #'
 #' @param file Path to a CSV/TSV file with columns: family_id, sire_id,
 #'   dam_id.
-#' @param genotype_matrix A genotype matrix (from [read_genotype()]) that
+#' @param genotype_matrix A genotype matrix (from \code{read_genotype()}) that
 #'   includes sire and dam genotypes.
 #' @param sep Field separator (default: comma).
 #' @return A list of class \code{aapa_parents}, where each element is a
@@ -292,11 +401,15 @@ read_parents <- function(file, genotype_matrix, sep = ",") {
     cli::cli_alert_info("Reading parents file: {.file {file}}")
   }
   dat <- if (is.character(file)) {
-    data.table::fread(file, sep = sep, header = TRUE,
-                      stringsAsFactors = FALSE, data.table = FALSE)
+    data.table::fread(file,
+      sep = sep, header = TRUE,
+      stringsAsFactors = FALSE, data.table = FALSE
+    )
   } else {
-    utils::read.csv(file, sep = sep, header = TRUE,
-                    stringsAsFactors = FALSE)
+    utils::read.csv(file,
+      sep = sep, header = TRUE,
+      stringsAsFactors = FALSE
+    )
   }
   required_cols <- c("family_id", "sire_id", "dam_id")
   if (!all(required_cols %in% names(dat))) {
@@ -367,11 +480,15 @@ read_anchors <- function(file, genotype_matrix, sep = ",") {
     cli::cli_alert_info("Reading anchors file: {.file {file}}")
   }
   dat <- if (is.character(file)) {
-    data.table::fread(file, sep = sep, header = TRUE,
-                      stringsAsFactors = FALSE, data.table = FALSE)
+    data.table::fread(file,
+      sep = sep, header = TRUE,
+      stringsAsFactors = FALSE, data.table = FALSE
+    )
   } else {
-    utils::read.csv(file, sep = sep, header = TRUE,
-                    stringsAsFactors = FALSE)
+    utils::read.csv(file,
+      sep = sep, header = TRUE,
+      stringsAsFactors = FALSE
+    )
   }
   required_cols <- c("individual_id", "family_id")
   if (!all(required_cols %in% names(dat))) {
@@ -385,8 +502,7 @@ read_anchors <- function(file, genotype_matrix, sep = ",") {
   dat$individual_id <- as.character(dat$individual_id)
   dat$family_id <- as.character(dat$family_id)
 
-  if (anyNA(dat$individual_id) || any(dat$individual_id == "") ||
-      anyDuplicated(dat$individual_id)) {
+  if (anyNA(dat$individual_id) || any(dat$individual_id == "") || anyDuplicated(dat$individual_id)) {
     cli::cli_abort("Anchors file must contain unique, non-missing `individual_id` values.")
   }
 
@@ -403,12 +519,17 @@ read_anchors <- function(file, genotype_matrix, sep = ",") {
   }
 
   anchor_geno <- genotype_matrix[dat$individual_id, , drop = FALSE]
-  n_fam <- length(unique(dat$family_id))
   cli::cli_alert_success(
-    "Read {nrow(dat)} anchor{?s} from {n_fam} famil{?y/ies}"
+    sprintf(
+      "Read %d anchors from %d families",
+      nrow(dat),
+      length(unique(dat$family_id))
+    )
   )
-  anchors <- structure(dat, class = c("aapa_anchors", "data.frame"),
-                       geno = anchor_geno)
+  anchors <- structure(dat,
+    class = c("aapa_anchors", "data.frame"),
+    geno = anchor_geno
+  )
   .validate_anchors_object(anchors)
   anchors
 }
@@ -460,9 +581,11 @@ simulate_aapa_data <- function(n_families = 10, n_snps = 500,
   # Helper: simulate diploid genotype from allele freq
   sim_geno <- function(n, p) {
     allele1 <- matrix(stats::rbinom(n * length(p), 1, rep(p, each = n)),
-                      nrow = n, ncol = length(p))
+      nrow = n, ncol = length(p)
+    )
     allele2 <- matrix(stats::rbinom(n * length(p), 1, rep(p, each = n)),
-                      nrow = n, ncol = length(p))
+      nrow = n, ncol = length(p)
+    )
     allele1 + allele2
   }
 
@@ -473,14 +596,22 @@ simulate_aapa_data <- function(n_families = 10, n_snps = 500,
     for (j in seq_len(n_snps_local)) {
       # Sire allele
       s <- sire_geno[j]
-      s_allele <- if (s == 0) rep(0L, n)
-                  else if (s == 2) rep(1L, n)
-                  else stats::rbinom(n, 1, 0.5)
+      s_allele <- if (s == 0) {
+        rep(0L, n)
+      } else if (s == 2) {
+        rep(1L, n)
+      } else {
+        stats::rbinom(n, 1, 0.5)
+      }
       # Dam allele
       d <- dam_geno[j]
-      d_allele <- if (d == 0) rep(0L, n)
-                  else if (d == 2) rep(1L, n)
-                  else stats::rbinom(n, 1, 0.5)
+      d_allele <- if (d == 0) {
+        rep(0L, n)
+      } else if (d == 2) {
+        rep(1L, n)
+      } else {
+        stats::rbinom(n, 1, 0.5)
+      }
       offspring[, j] <- s_allele + d_allele
     }
     offspring
@@ -496,7 +627,6 @@ simulate_aapa_data <- function(n_families = 10, n_snps = 500,
     stringsAsFactors = FALSE
   )
   all_geno <- list()
-  all_ids <- character(0)
   anchor_df <- data.frame(
     individual_id = character(0),
     family_id = character(0),
@@ -576,9 +706,8 @@ simulate_aapa_data <- function(n_families = 10, n_snps = 500,
     }
   }
 
-  n_total_ind <- nrow(geno_mat)
   cli::cli_alert_success(
-    "Simulated {n_total_ind} individual{?s} x {n_snps} marker{?s}"
+    sprintf("Simulated %d individuals x %d markers", nrow(geno_mat), n_snps)
   )
 
   list(

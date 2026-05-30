@@ -12,8 +12,8 @@
 #' @param genotype Numeric matrix (individuals x SNPs) with dosage
 #'   encoding 0/1/2/NA.
 #' @param parents An \code{aapa_parents} object or a named list of
-#'   families (see [read_parents()]).
-#' @param anchors An \code{aapa_anchors} object (see [read_anchors()]).
+#'   families (see \code{read_parents()}).
+#' @param anchors An \code{aapa_anchors} object (see \code{read_anchors()}).
 #' @param test_ids Character vector of individual IDs to assign. If NULL,
 #'   all individuals not in parents or anchors are used.
 #' @param alpha Weight for Mendelian conflict penalty (default: 1.0).
@@ -63,10 +63,11 @@ aapa_assign <- function(genotype, parents, anchors,
                         tau_conf = -0.05,
                         tau_rej = 0.1,
                         max_conflict = 0.1) {
-
   # --- Parameter validation ---
-  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
-                           min.cols = 1)
+  checkmate::assert_matrix(genotype,
+    mode = "numeric", min.rows = 1,
+    min.cols = 1
+  )
   checkmate::assert_list(parents, min.len = 1)
   checkmate::assert_character(test_ids, null.ok = TRUE)
   checkmate::assert_number(alpha, lower = 0)
@@ -92,8 +93,10 @@ aapa_assign <- function(genotype, parents, anchors,
     } else {
       character(0)
     }
-    test_ids <- setdiff(rownames(genotype),
-                        union(parent_ids, anchor_ids))
+    test_ids <- setdiff(
+      rownames(genotype),
+      union(parent_ids, anchor_ids)
+    )
   }
   if (length(test_ids) == 0) {
     cli::cli_abort("No test individuals found.")
@@ -209,10 +212,12 @@ aapa_assign <- function(genotype, parents, anchors,
     ))
   }
 
-  n_assigned <- sum(assignment$status == "ASSIGNED")
-  n_rejected <- sum(assignment$status == "REJECT")
   cli::cli_alert_success(
-    "Assignment complete: {n_assigned} assigned, {n_rejected} rejected"
+    sprintf(
+      "Assignment complete: %d assigned, %d rejected",
+      sum(assignment$status == "ASSIGNED"),
+      sum(assignment$status == "REJECT")
+    )
   )
 
   result <- list(
@@ -249,12 +254,17 @@ print.aapa_result <- function(x, ...) {
   pct_rejected <- round(100 * n_rejected / n_total, 1)
 
   cli::cli_h1("AAPA Assignment Result")
-  cli::cli_text("Total individuals: {.strong {n_total}}")
-  cli::cli_text("Assigned: {.strong {n_assigned}} ({pct_assigned}%)")
-  cli::cli_text("Rejected: {.strong {n_rejected}} ({pct_rejected}%)")
-  cli::cli_text("Families: {.strong {ncol(x$score_matrix)}}")
+  cli::cli_text(sprintf("Total individuals: %d", n_total))
+  cli::cli_text(sprintf("Assigned: %d (%.1f%%)", n_assigned, pct_assigned))
+  cli::cli_text(sprintf("Rejected: %d (%.1f%%)", n_rejected, pct_rejected))
+  cli::cli_text(sprintf("Families: %d", ncol(x$score_matrix)))
   cli::cli_text(
-    "Parameters: alpha={x$params$alpha}, beta={x$params$beta}, top_k={x$params$top_k}"
+    sprintf(
+      "Parameters: alpha=%s, beta=%s, top_k=%s",
+      x$params$alpha,
+      x$params$beta,
+      x$params$top_k
+    )
   )
   invisible(x)
 }

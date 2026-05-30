@@ -9,22 +9,20 @@
 #' with the expected offspring genotypes given the parental cross.
 #'
 #' @param genotype Numeric matrix (individuals x SNPs), dosage 0/1/2/NA.
-#' @param parents An \code{aapa_parents} object (from [read_parents()] or
+#' @param parents An \code{aapa_parents} object (from \code{read_parents()} or
 #'   a named list of families with \code{sire_geno} and \code{dam_geno}).
 #' @param test_ids Character vector of individual IDs to test. If NULL,
 #'   all non-parent individuals in genotype are used.
 #' @return A numeric matrix of dimension (n_test x n_families) with
-#'   Mendelian conflict rates in [0, 1].
+#'   Mendelian conflict rates in \code{[0, 1]}.
 #' @family scoring
 #' @examples
 #' sim <- simulate_aapa_data(n_families = 3, n_snps = 100)
-#' parents <- read_parents(
-#'   file = textConnection(paste(
-#'     apply(sim$parents, 1, paste, collapse = ","), collapse = "\n"
-#'   )),
-#'   genotype_matrix = sim$genotype
-#' )
+#' tmp <- tempfile(fileext = ".csv")
+#' write.csv(sim$parents, tmp, row.names = FALSE)
+#' parents <- read_parents(tmp, genotype_matrix = sim$genotype)
 #' cm <- mendelian_conflict(sim$genotype, parents)
+#' unlink(tmp)
 #' @export
 mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
   .validate_genotype_matrix(genotype)
@@ -43,7 +41,6 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
   test_geno <- genotype[test_ids, , drop = FALSE]
   n_test <- nrow(test_geno)
   n_fam <- length(parents)
-  n_snp <- ncol(test_geno)
 
   # Pre-compute allowed offspring genotypes for each family and locus
   # For dosage coding: sire_alleles x dam_alleles -> possible offspring dosages
@@ -54,7 +51,7 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
   for (fi in seq_along(parents)) {
     fam <- parents[[fi]]
     sg <- fam$sire_geno # length M
-    dg <- fam$dam_geno  # length M
+    dg <- fam$dam_geno # length M
 
     # Compute allowed genotype set per locus
     # Sire dosage s -> alleles (0: {0,0}, 1: {0,1}, 2: {1,1})
@@ -72,8 +69,7 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
         next
       }
       # Count conflicts
-      n_conflict <- sum(!.is_compatible(ig[valid], allowed[valid, ,
-                                                           drop = FALSE]))
+      n_conflict <- sum(!.is_compatible(ig[valid], allowed[valid, , drop = FALSE]))
       conflict_mat[ii, fi] <- n_conflict / n_valid
     }
   }
@@ -96,21 +92,23 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
     s <- sire_geno[j]
     d <- dam_geno[j]
     if (is.na(s) || is.na(d)) {
-      allowed[j, ] <- TRUE  # unknown parent -> all allowed
+      allowed[j, ] <- TRUE # unknown parent -> all allowed
       next
     }
     # Sire alleles
     s_alleles <- switch(as.character(s),
-                        "0" = c(0, 0),
-                        "1" = c(0, 1),
-                        "2" = c(1, 1),
-                        c(0, 1))  # fallback
+      "0" = c(0, 0),
+      "1" = c(0, 1),
+      "2" = c(1, 1),
+      c(0, 1)
+    ) # fallback
     # Dam alleles
     d_alleles <- switch(as.character(d),
-                        "0" = c(0, 0),
-                        "1" = c(0, 1),
-                        "2" = c(1, 1),
-                        c(0, 1))
+      "0" = c(0, 0),
+      "1" = c(0, 1),
+      "2" = c(1, 1),
+      c(0, 1)
+    )
     # All possible offspring dosages
     possible <- unique(outer(s_alleles, d_alleles, "+"))
     allowed[j, as.character(possible)] <- TRUE
@@ -127,7 +125,9 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
 .is_compatible <- function(ind_geno, allowed) {
   vapply(seq_along(ind_geno), function(j) {
     g <- ind_geno[j]
-    if (is.na(g) || g < 0 || g > 2) return(TRUE)
+    if (is.na(g) || g < 0 || g > 2) {
+      return(TRUE)
+    }
     allowed[j, as.character(g)]
   }, logical(1))
 }
@@ -138,7 +138,7 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
 #' IBS (Identity-By-State) similarity with the family's anchor individuals.
 #'
 #' @param genotype Numeric matrix (individuals x SNPs).
-#' @param anchors An \code{aapa_anchors} object (from [read_anchors()]).
+#' @param anchors An \code{aapa_anchors} object (from \code{read_anchors()}).
 #' @param test_ids Character vector of test individual IDs.
 #' @param method Kinship estimation method. Currently only \code{"ibs"}
 #'   (proportion of IBS matches) is supported.
@@ -205,9 +205,9 @@ anchor_kinship <- function(genotype, anchors, test_ids,
 #' \deqn{S_{i,f} = -\alpha \cdot C_{i,f} + \beta \cdot K_{i,f}}
 #'
 #' @param conflict_mat Numeric matrix of Mendelian conflict rates
-#'   (from [mendelian_conflict()]).
+#'   (from \code{mendelian_conflict()}).
 #' @param kinship_mat Numeric matrix of anchor kinship scores
-#'   (from [anchor_kinship()]).
+#'   (from \code{anchor_kinship()}).
 #' @param alpha Weight for conflict penalty (default: 1.0).
 #' @param beta Weight for kinship reward (default: 1.0).
 #' @return A numeric matrix (n_test x n_families) of composite scores.

@@ -33,8 +33,7 @@ qc_filter <- function(genotype,
                       max_ind_missing = 0.2,
                       min_maf = 0.01,
                       verbose = TRUE) {
-  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
-                           min.cols = 1)
+  .validate_genotype_matrix(genotype)
   checkmate::assert_number(max_snp_missing, lower = 0, upper = 1)
   checkmate::assert_number(max_ind_missing, lower = 0, upper = 1)
   checkmate::assert_number(min_maf, lower = 0, upper = 0.5)

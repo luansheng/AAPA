@@ -15,25 +15,8 @@ test_that("aapa_assign runs end-to-end with simulated data", {
   parents_df <- sim$parents
   anchors_df <- sim$anchors
 
-  # Build parents object
-  parents <- lapply(seq_len(nrow(parents_df)), function(i) {
-    list(
-      family_id = parents_df$family_id[i],
-      sire_id   = parents_df$sire_id[i],
-      dam_id    = parents_df$dam_id[i],
-      sire_geno = geno[parents_df$sire_id[i], ],
-      dam_geno  = geno[parents_df$dam_id[i], ]
-    )
-  })
-  names(parents) <- parents_df$family_id
-  class(parents) <- "aapa_parents"
-
-  # Build anchors object
-  anchors <- structure(
-    anchors_df,
-    class = c("aapa_anchors", "data.frame"),
-    geno = geno[anchors_df$individual_id, , drop = FALSE]
-  )
+  parents <- make_parents_object(geno, parents_df)
+  anchors <- make_anchors_object(geno, anchors_df)
 
   result <- aapa_assign(geno, parents, anchors, top_k = 3)
 
@@ -42,6 +25,10 @@ test_that("aapa_assign runs end-to-end with simulated data", {
   expect_true(all(result$assignment$status %in% c("ASSIGNED", "REJECT")))
   expect_equal(ncol(result$conflict_matrix), 5)
   expect_true(length(result$topk) > 0)
+  expect_identical(rownames(result$conflict_matrix), result$assignment$individual_id)
+  expect_identical(colnames(result$conflict_matrix), names(parents))
+  expect_identical(colnames(result$kinship_matrix), names(parents))
+  expect_identical(colnames(result$score_matrix), names(parents))
 })
 
 test_that("aapa_assign correctly assigns perfect data", {
@@ -57,23 +44,8 @@ test_that("aapa_assign correctly assigns perfect data", {
   parents_df <- sim$parents
   anchors_df <- sim$anchors
 
-  parents <- lapply(seq_len(nrow(parents_df)), function(i) {
-    list(
-      family_id = parents_df$family_id[i],
-      sire_id   = parents_df$sire_id[i],
-      dam_id    = parents_df$dam_id[i],
-      sire_geno = geno[parents_df$sire_id[i], ],
-      dam_geno  = geno[parents_df$dam_id[i], ]
-    )
-  })
-  names(parents) <- parents_df$family_id
-  class(parents) <- "aapa_parents"
-
-  anchors <- structure(
-    anchors_df,
-    class = c("aapa_anchors", "data.frame"),
-    geno = geno[anchors_df$individual_id, , drop = FALSE]
-  )
+  parents <- make_parents_object(geno, parents_df)
+  anchors <- make_anchors_object(geno, anchors_df)
 
   result <- aapa_assign(geno, parents, anchors,
                         top_k = 3, tau_conf = -Inf,
@@ -109,23 +81,8 @@ test_that("aapa_assign rejects unknown-family individuals", {
   parents_df <- sim$parents
   anchors_df <- sim$anchors
 
-  parents <- lapply(seq_len(nrow(parents_df)), function(i) {
-    list(
-      family_id = parents_df$family_id[i],
-      sire_id   = parents_df$sire_id[i],
-      dam_id    = parents_df$dam_id[i],
-      sire_geno = geno[parents_df$sire_id[i], ],
-      dam_geno  = geno[parents_df$dam_id[i], ]
-    )
-  })
-  names(parents) <- parents_df$family_id
-  class(parents) <- "aapa_parents"
-
-  anchors <- structure(
-    anchors_df,
-    class = c("aapa_anchors", "data.frame"),
-    geno = geno[anchors_df$individual_id, , drop = FALSE]
-  )
+  parents <- make_parents_object(geno, parents_df)
+  anchors <- make_anchors_object(geno, anchors_df)
 
   # Use strict rejection thresholds
   result <- aapa_assign(geno, parents, anchors,
@@ -146,4 +103,50 @@ test_that("aapa_assign rejects unknown-family individuals", {
     # This is a soft check since rejection depends on data characteristics
     expect_true(n_rejected_unknown >= 0)
   }
+})
+
+test_that("aapa_assign aligns parents and anchors after QC marker filtering", {
+  sim <- simulate_aapa_data(
+    n_families = 4, n_snps = 200,
+    n_offspring_per_family = 5,
+    n_anchors_per_family = 2,
+    n_unknown = 2,
+    missing_rate = 0.05, error_rate = 0
+  )
+
+  geno <- sim$genotype
+  parents <- make_parents_object(geno, sim$parents)
+  anchors <- make_anchors_object(geno, sim$anchors)
+
+  qc_result <- qc_filter(
+    geno,
+    max_snp_missing = 0.1,
+    max_ind_missing = 1,
+    min_maf = 0.05,
+    verbose = FALSE
+  )
+
+  result <- aapa_assign(qc_result$genotype, parents, anchors, top_k = 3)
+
+  expect_s3_class(result, "aapa_result")
+  expect_identical(colnames(result$conflict_matrix), names(parents))
+})
+
+test_that("aapa_assign rejects anchors with unknown family IDs", {
+  sim <- simulate_aapa_data(
+    n_families = 3, n_snps = 100,
+    n_offspring_per_family = 4,
+    n_anchors_per_family = 2,
+    n_unknown = 0,
+    missing_rate = 0, error_rate = 0
+  )
+
+  parents <- make_parents_object(sim$genotype, sim$parents)
+  anchors <- make_anchors_object(sim$genotype, sim$anchors)
+  anchors$family_id[1] <- "FAM999"
+
+  expect_error(
+    aapa_assign(sim$genotype, parents, anchors),
+    "Anchor family IDs must exist"
+  )
 })

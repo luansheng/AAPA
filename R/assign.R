@@ -76,6 +76,12 @@ aapa_assign <- function(genotype, parents, anchors,
   checkmate::assert_number(tau_rej)
   checkmate::assert_number(max_conflict, lower = 0, upper = 1)
 
+  .validate_genotype_matrix(genotype)
+  .validate_parents_object(parents)
+  parents <- .align_parents_to_markers(parents, colnames(genotype))
+  .validate_anchors_object(anchors, family_ids = names(parents))
+  anchors <- .align_anchors_to_markers(anchors, colnames(genotype))
+
   # Determine test individuals
   if (is.null(test_ids)) {
     parent_ids <- unique(unlist(lapply(parents, function(x) {

@@ -27,10 +27,11 @@
 #' cm <- mendelian_conflict(sim$genotype, parents)
 #' @export
 mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
-  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
-                           min.cols = 1)
-  checkmate::assert_list(parents, min.len = 1)
+  .validate_genotype_matrix(genotype)
+  .validate_parents_object(parents)
   checkmate::assert_character(test_ids, null.ok = TRUE)
+
+  parents <- .align_parents_to_markers(parents, colnames(genotype))
 
   if (is.null(test_ids)) {
     parent_ids <- unique(unlist(lapply(parents, function(x) {
@@ -146,12 +147,12 @@ mendelian_conflict <- function(genotype, parents, test_ids = NULL) {
 #' @export
 anchor_kinship <- function(genotype, anchors, test_ids,
                            method = "ibs") {
-  checkmate::assert_matrix(genotype, mode = "numeric", min.rows = 1,
-                           min.cols = 1)
-  checkmate::assert_class(anchors, "aapa_anchors")
+  .validate_genotype_matrix(genotype)
+  .validate_anchors_object(anchors)
   checkmate::assert_character(test_ids, min.len = 1)
   checkmate::assert_choice(method, c("ibs"))
 
+  anchors <- .align_anchors_to_markers(anchors, colnames(genotype))
   anchor_geno <- attr(anchors, "geno")
   families <- unique(anchors$family_id)
 

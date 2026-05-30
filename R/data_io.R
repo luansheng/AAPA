@@ -74,12 +74,17 @@ read_genotype <- function(file, sep = ",", header = TRUE) {
 #' @family data-io
 #' @export
 read_parents <- function(file, genotype_matrix, sep = ",") {
-  checkmate::assert_string(file)
-  checkmate::assert_file_exists(file)
+  checkmate::assert(
+    checkmate::check_string(file),
+    checkmate::check_class(file, "connection")
+  )
+  if (is.character(file)) checkmate::assert_file_exists(file)
   checkmate::assert_matrix(genotype_matrix, mode = "numeric")
   checkmate::assert_string(sep)
 
-  cli::cli_alert_info("Reading parents file: {.file {file}}")
+  if (is.character(file)) {
+    cli::cli_alert_info("Reading parents file: {.file {file}}")
+  }
   dat <- utils::read.csv(file, sep = sep, header = TRUE,
                          stringsAsFactors = FALSE)
   required_cols <- c("family_id", "sire_id", "dam_id")
@@ -130,12 +135,17 @@ read_parents <- function(file, genotype_matrix, sep = ",") {
 #' @family data-io
 #' @export
 read_anchors <- function(file, genotype_matrix, sep = ",") {
-  checkmate::assert_string(file)
-  checkmate::assert_file_exists(file)
+  checkmate::assert(
+    checkmate::check_string(file),
+    checkmate::check_class(file, "connection")
+  )
+  if (is.character(file)) checkmate::assert_file_exists(file)
   checkmate::assert_matrix(genotype_matrix, mode = "numeric")
   checkmate::assert_string(sep)
 
-  cli::cli_alert_info("Reading anchors file: {.file {file}}")
+  if (is.character(file)) {
+    cli::cli_alert_info("Reading anchors file: {.file {file}}")
+  }
   dat <- utils::read.csv(file, sep = sep, header = TRUE,
                          stringsAsFactors = FALSE)
   required_cols <- c("individual_id", "family_id")

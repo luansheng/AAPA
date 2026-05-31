@@ -5,6 +5,7 @@
 #' @import cli
 #' @import checkmate
 #' @importFrom data.table fread
+#' @useDynLib aapa, .registration = TRUE
 NULL
 
 #' Validate genotype matrix contract

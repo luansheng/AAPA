@@ -37,5 +37,5 @@ Suggests:
     rmarkdown
 Config/testthat/edition: 3
 VignetteBuilder: knitr
-URL: https://github.com/luansheng/AAPA
+URL: https://github.com/luansheng/AAPA, https://luansheng.github.io/AAPA/
 BugReports: https://github.com/luansheng/AAPA/issues

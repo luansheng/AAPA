@@ -26,9 +26,11 @@ reference:
       - composite_score
 
   - title: "Assignment Pipeline"
-    desc: "Main assignment and rejection filtering"
+    desc: "Main assignment, rejection filtering, and result methods"
     contents:
       - aapa_assign
+      - print.aapa_result
+      - summary.aapa_result
 
   - title: "Quality Control"
     desc: "Genotype data quality filtering"
